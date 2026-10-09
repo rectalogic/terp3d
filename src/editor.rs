@@ -24,7 +24,7 @@ pub struct DrawingEditor;
 
 #[derive(Default)]
 pub struct DrawingEditorProps {
-    layer: usize,
+    pub render_layers: RenderLayers,
 }
 
 #[derive(Component)]
@@ -37,15 +37,7 @@ struct RenderingCamera(Entity);
 
 impl DrawingEditor {
     fn scene(props: DrawingEditorProps) -> impl Scene {
-        let mut image = Image::new_uninit(
-            default(),
-            TextureDimension::D2,
-            TextureFormat::Bgra8UnormSrgb,
-            RenderAssetUsages::all(),
-        );
-        image.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING
-            | TextureUsages::COPY_DST
-            | TextureUsages::RENDER_ATTACHMENT;
+        let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
 
         bsn! {
             ViewportNode { camera: OptionTemplate::Some(#Camera) }
@@ -53,10 +45,13 @@ impl DrawingEditor {
                 #Camera
                 Camera3d
                 Camera { order: -1 }
-                PanOrbitCamera
-                RenderLayers::layer(props.layer)
+                PanOrbitCamera {
+                    last_anchor_depth: -10.0
+                }
+                props.render_layers
                 RenderTarget::Image(ImageRenderTargetTemplate {
-                    handle: asset_value(image)
+                    handle: asset_value(image),
+                    scale_factor: 1.0, //XXX default is 0, panics
                 })
             ]
         }

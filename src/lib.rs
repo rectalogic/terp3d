@@ -1,2 +1,2 @@
 mod editor;
-pub use editor::EditorPlugin;
+pub use editor::{DrawingEditor, EditorPlugin};
