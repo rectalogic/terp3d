@@ -1,12 +1,12 @@
 use bevy::{
-    asset::{RenderAssetUsages, asset_value},
+    asset::asset_value,
     camera::{ImageRenderTargetTemplate, RenderTarget, visibility::RenderLayers},
     camera_controller::pan_orbit_camera::{
         DefaultPanOrbitCameraPlugins, controller::component::PanOrbitCamera,
     },
     ecs::template::OptionTemplate,
     prelude::*,
-    render::render_resource::{TextureDimension, TextureFormat, TextureUsages},
+    render::render_resource::TextureFormat,
     ui::widget::ViewportNode,
 };
 
@@ -45,9 +45,8 @@ impl DrawingEditor {
                 #Camera
                 Camera3d
                 Camera { order: -1 }
-                PanOrbitCamera {
-                    last_anchor_depth: -10.0
-                }
+                Transform::from_xyz(0., 0., 10.)
+                PanOrbitCamera
                 props.render_layers
                 RenderTarget::Image(ImageRenderTargetTemplate {
                     handle: asset_value(image),

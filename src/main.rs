@@ -14,43 +14,46 @@ fn main() {
             }),
             EditorPlugin,
         ))
-        .add_systems(PostStartup, setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
 fn setup(mut commands: Commands) {
     commands.spawn_scene_list(bsn_list! {
         Camera2d
+        IsDefaultUiCamera
         --
+        @DrawingEditor { @render_layers: RenderLayers::layer(1) }
+        BorderColor::all(css::YELLOW)
+        FixedNode
         Node {
-            width: percent(100),
+            left: percent(0),
+            width: percent(50),
             height: percent(100),
+            border: UiRect::all(px(8)),
         }
-        Children [
-            @DrawingEditor { @render_layers: RenderLayers::layer(1) }
-            // BackgroundColor(css::YELLOW)
-            FixedNode
-            Node {
-                left: percent(0),
-                width: percent(50),
-                height: percent(100),
-            }
-            --
-            @DrawingEditor { @render_layers: RenderLayers::layer(2) }
-            // BackgroundColor(css::BLUE)
-            FixedNode
-            Node {
-                left: percent(50),
-                width: percent(50),
-                height: percent(100),
-            }
-        ]
+        --
+        @DrawingEditor { @render_layers: RenderLayers::layer(2) }
+        BorderColor::all(css::BLUE)
+        FixedNode
+        Node {
+            left: percent(50),
+            width: percent(50),
+            height: percent(100),
+            border: UiRect::all(px(8)),
+        }
         --
         @cube(Color::srgb_u8(124, 144, 255))
         RenderLayers::layer(1)
         --
         @cube(Color::srgb_u8(124, 0, 0))
-        RenderLayers::layer(1)
+        RenderLayers::layer(2)
+        --
+        RenderLayers::from_layers(&[1, 2])
+        DirectionalLight {
+            illuminance: light_consts::lux::RAW_SUNLIGHT,
+        }
+        Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y)
     });
 }
 
