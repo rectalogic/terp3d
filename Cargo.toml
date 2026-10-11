@@ -5,4 +5,4 @@ edition = "2024"
 
 [dependencies]
 # bevy = { version = "0.20.0", features = ["pan_orbit_camera"] }
-bevy = { path = "/Users/aw/Projects/rectalogic/experiments/vendor/bevy", features = ["pan_orbit_camera"] }
+bevy = { git = "https://github.com/rectalogic/bevy.git", branch = "viewportnode", features = ["pan_orbit_camera"] }
