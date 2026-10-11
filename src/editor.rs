@@ -6,6 +6,7 @@ use bevy::{
     },
     ecs::template::OptionTemplate,
     input::mouse::MouseScrollPixelsPerLine,
+    picking::PickingSystems,
     prelude::*,
     render::render_resource::TextureFormat,
     ui::widget::ViewportNode,
@@ -16,6 +17,12 @@ pub struct EditorPlugin;
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((DefaultPanOrbitCameraPlugins, MeshPickingPlugin));
+        app.add_systems(
+            PreUpdate,
+            end_viewport_zoom
+                .after(PickingSystems::Last)
+                .before(PanOrbitCamera::update_camera_positions),
+        );
     }
 }
 
@@ -115,6 +122,20 @@ fn on_viewport_pointer_scroll(
         let scroll = scroll.to_pixels(&pixels_per_line);
         controller.start_zoom(None);
         controller.send_zoom_input(scroll.y);
-        controller.end_move();
     };
+}
+
+fn end_viewport_zoom(mut cameras: Query<&mut PanOrbitCamera>) {
+    for mut controller in &mut cameras {
+        let zoom_settled = controller.current_motion.is_zooming_only()
+            && controller
+                .current_motion
+                .inputs()
+                .map(|inputs| inputs.zoom_velocity_abs(controller.smoothing.zoom.mul_f32(2.0)))
+                .unwrap_or(0.0)
+                <= 0.0;
+        if zoom_settled {
+            controller.end_move();
+        }
+    }
 }
