@@ -17,6 +17,7 @@ pub struct EditorPlugin;
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((DefaultPanOrbitCameraPlugins, MeshPickingPlugin))
+            .add_systems(Startup, setup_axes)
             .add_systems(
                 PreUpdate,
                 end_viewport_zoom
@@ -72,14 +73,20 @@ impl DrawingEditor {
 
 fn on_viewport_pointer_press(
     press: On<PointerPress>,
+    mut commands: Commands,
     viewports: Query<&ViewportNode>,
     mut cameras: Query<&mut PanOrbitCamera>,
+    layers: Query<&RenderLayers>,
+    gizmo_axes: Single<Entity, With<GizmoAxes>>,
 ) {
     if let Ok(viewport) = viewports.get(press.entity)
         && let Some(camera) = viewport.camera
         && let Ok(mut controller) = cameras.get_mut(camera)
         && !controller.is_actively_controlled()
     {
+        if let Ok(layer) = layers.get(camera) {
+            commands.entity(*gizmo_axes).insert(layer.clone());
+        }
         controller.start_orbit(None);
     };
 }
@@ -99,34 +106,47 @@ fn on_viewport_pointer_drag(
 
 fn on_viewport_pointer_release(
     drag: On<PointerRelease>,
+    mut commands: Commands,
     viewports: Query<&ViewportNode>,
     mut cameras: Query<&mut PanOrbitCamera>,
+    gizmo_axes: Single<Entity, With<GizmoAxes>>,
 ) {
     if let Ok(viewport) = viewports.get(drag.entity)
         && let Some(camera) = viewport.camera
         && let Ok(mut controller) = cameras.get_mut(camera)
     {
+        commands.entity(*gizmo_axes).remove::<RenderLayers>();
         controller.end_move();
     };
 }
 
 fn on_viewport_pointer_scroll(
     scroll: On<PointerScroll>,
+    mut commands: Commands,
     viewports: Query<&ViewportNode>,
     mut cameras: Query<&mut PanOrbitCamera>,
     pixels_per_line: Res<MouseScrollPixelsPerLine>,
+    layers: Query<&RenderLayers>,
+    gizmo_axes: Single<Entity, With<GizmoAxes>>,
 ) {
     if let Ok(viewport) = viewports.get(scroll.entity)
         && let Some(camera) = viewport.camera
         && let Ok(mut controller) = cameras.get_mut(camera)
     {
+        if let Ok(layer) = layers.get(camera) {
+            commands.entity(*gizmo_axes).insert(layer.clone());
+        }
         let scroll = scroll.to_pixels(&pixels_per_line);
         controller.start_zoom(None);
         controller.send_zoom_input(scroll.y);
     };
 }
 
-fn end_viewport_zoom(mut cameras: Query<&mut PanOrbitCamera>) {
+fn end_viewport_zoom(
+    mut commands: Commands,
+    mut cameras: Query<&mut PanOrbitCamera>,
+    gizmo_axes: Single<Entity, With<GizmoAxes>>,
+) {
     for mut controller in &mut cameras {
         let zoom_settled = controller.current_motion.is_zooming_only()
             && controller
@@ -136,7 +156,52 @@ fn end_viewport_zoom(mut cameras: Query<&mut PanOrbitCamera>) {
                 .unwrap_or(0.0)
                 <= 0.0;
         if zoom_settled {
+            commands.entity(*gizmo_axes).remove::<RenderLayers>();
             controller.end_move();
         }
     }
+}
+
+#[derive(Component, Default, Clone)]
+struct GizmoAxes;
+
+fn setup_axes(mut commands: Commands, mut gizmo_assets: ResMut<Assets<GizmoAsset>>) {
+    let mut gizmo_asset = GizmoAsset::default();
+    let cells = UVec2::splat(15);
+    let spacing = Vec2::splat(0.3);
+    let alpha = 0.3;
+
+    gizmo_asset
+        .grid(
+            Isometry3d::IDENTITY,
+            cells,
+            spacing,
+            Srgba::new(1.0, 0.0, 0.0, alpha),
+        )
+        .outer_edges();
+
+    let xz_iso = Isometry3d::new(
+        Vec3::ZERO,
+        Quat::from_rotation_x(std::f32::consts::FRAC_PI_2),
+    );
+    gizmo_asset
+        .grid(xz_iso, cells, spacing, Srgba::new(0.0, 1.0, 0.0, alpha))
+        .outer_edges();
+
+    let yz_iso = Isometry3d::new(
+        Vec3::ZERO,
+        Quat::from_rotation_y(std::f32::consts::FRAC_PI_2),
+    );
+    gizmo_asset
+        .grid(yz_iso, cells, spacing, Srgba::new(0.0, 0.0, 1.0, alpha))
+        .outer_edges();
+
+    let gizmo_handle = gizmo_assets.add(gizmo_asset);
+    commands.spawn_scene(bsn! {
+        GizmoAxes
+        Gizmo {
+            handle: gizmo_handle,
+            line_config: GizmoLineConfig { width: 3.0, perspective: true }
+        }
+    });
 }

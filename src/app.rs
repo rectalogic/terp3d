@@ -17,7 +17,7 @@ impl Plugin for AppPlugin {
             }),
             EditorPlugin,
         ))
-        .add_systems(Startup, (setup, setup_axes));
+        .add_systems(Startup, setup);
     }
 }
 
@@ -72,45 +72,4 @@ fn cube(color: Color) -> impl Scene {
         Mesh3d(asset_value(Cuboid::new(1.0, 1.0, 1.0)))
         MeshMaterial3d::<StandardMaterial>(asset_value(color))
     }
-}
-
-fn setup_axes(mut commands: Commands, mut gizmo_assets: ResMut<Assets<GizmoAsset>>) {
-    let mut gizmo_asset = GizmoAsset::default();
-    let cells = UVec2::splat(15);
-    let spacing = Vec2::splat(0.3);
-    let alpha = 0.3;
-
-    gizmo_asset
-        .grid(
-            Isometry3d::IDENTITY,
-            cells,
-            spacing,
-            Srgba::new(1.0, 0.0, 0.0, alpha),
-        )
-        .outer_edges();
-
-    let xz_iso = Isometry3d::new(
-        Vec3::ZERO,
-        Quat::from_rotation_x(std::f32::consts::FRAC_PI_2),
-    );
-    gizmo_asset
-        .grid(xz_iso, cells, spacing, Srgba::new(0.0, 1.0, 0.0, alpha))
-        .outer_edges();
-
-    let yz_iso = Isometry3d::new(
-        Vec3::ZERO,
-        Quat::from_rotation_y(std::f32::consts::FRAC_PI_2),
-    );
-    gizmo_asset
-        .grid(yz_iso, cells, spacing, Srgba::new(0.0, 0.0, 1.0, alpha))
-        .outer_edges();
-
-    let gizmo_handle = gizmo_assets.add(gizmo_asset);
-    let all_layers = SOURCE_LAYER.union(&TARGET_LAYER);
-    commands.spawn_scene(bsn! {
-        Gizmo {
-            handle: gizmo_handle,
-        }
-        all_layers
-    });
 }
