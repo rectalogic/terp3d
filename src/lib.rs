@@ -1,2 +1,3 @@
+mod app;
 mod editor;
-pub use editor::{DrawingEditor, EditorPlugin};
+pub use app::AppPlugin;

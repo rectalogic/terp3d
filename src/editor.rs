@@ -16,13 +16,13 @@ pub struct EditorPlugin;
 
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((DefaultPanOrbitCameraPlugins, MeshPickingPlugin));
-        app.add_systems(
-            PreUpdate,
-            end_viewport_zoom
-                .after(PickingSystems::Last)
-                .before(PanOrbitCamera::update_camera_positions),
-        );
+        app.add_plugins((DefaultPanOrbitCameraPlugins, MeshPickingPlugin))
+            .add_systems(
+                PreUpdate,
+                end_viewport_zoom
+                    .after(PickingSystems::Last)
+                    .before(PanOrbitCamera::update_camera_positions),
+            );
     }
 }
 
@@ -78,6 +78,7 @@ fn on_viewport_pointer_press(
     if let Ok(viewport) = viewports.get(press.entity)
         && let Some(camera) = viewport.camera
         && let Ok(mut controller) = cameras.get_mut(camera)
+        && !controller.is_actively_controlled()
     {
         controller.start_orbit(None);
     };
