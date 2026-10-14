@@ -3,8 +3,8 @@ use bevy::{
     camera_controller::pan_orbit_camera::{
         DefaultPanOrbitCameraPlugins, controller::component::PanOrbitCamera,
     },
-    ecs::{lifecycle::HookContext, world::DeferredWorld},
     input::mouse::MouseScrollPixelsPerLine,
+    math::DVec3,
     picking::PickingSystems,
     prelude::*,
 };
@@ -15,49 +15,39 @@ impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((DefaultPanOrbitCameraPlugins, MeshPickingPlugin))
             .add_systems(Startup, setup_axes)
-            .add_systems(Update, configure_pan_orbit_cameras)
             .add_systems(
                 PreUpdate,
                 end_viewport_zoom
                     .after(PickingSystems::Last)
                     .before(PanOrbitCamera::update_camera_positions),
-            );
+            )
+            .add_observer(on_add_camera_controller);
     }
 }
 
 #[derive(Component, Clone, Default, Debug, FromTemplate)]
-#[component(on_add)]
 pub struct CameraController {
     #[template(built_in)]
     pub camera: Option<Entity>,
 }
 
-impl CameraController {
-    fn on_add(mut world: DeferredWorld, context: HookContext) {
-        world
-            .commands()
-            .entity(context.entity)
-            .observe(on_viewport_pointer_press)
-            .observe(on_viewport_pointer_drag)
-            .observe(on_viewport_pointer_release)
-            .observe(on_viewport_pointer_scroll);
-    }
-}
-
-fn configure_pan_orbit_cameras(
+fn on_add_camera_controller(
+    add: On<Add<CameraController>>,
     mut commands: Commands,
     camera_controllers: Query<&CameraController>,
-    cameras: Query<&Transform, (With<Camera>, Without<PanOrbitCamera>)>,
 ) {
-    for camera_controller in camera_controllers {
-        if let Some(camera_entity) = camera_controller.camera
-            && let Ok(camera_transform) = cameras.get(camera_entity)
-        {
-            commands.entity(camera_entity).insert(PanOrbitCamera {
-                last_anchor_depth: -camera_transform.translation.length() as f64,
-                ..default()
-            });
-        }
+    commands
+        .entity(add.entity)
+        .observe(on_viewport_pointer_press)
+        .observe(on_viewport_pointer_drag)
+        .observe(on_viewport_pointer_release)
+        .observe(on_viewport_pointer_scroll);
+    if let Ok(camera_controller) = camera_controllers.get(add.entity)
+        && let Some(camera_entity) = camera_controller.camera
+    {
+        commands
+            .entity(camera_entity)
+            .insert(PanOrbitCamera::default());
     }
 }
 
@@ -65,13 +55,13 @@ fn on_viewport_pointer_press(
     press: On<PointerPress>,
     mut commands: Commands,
     camera_controllers: Query<&CameraController>,
-    mut pan_orbit_cameras: Query<&mut PanOrbitCamera>,
+    mut pan_orbit_cameras: Query<(&mut PanOrbitCamera, &Transform)>,
     layers: Query<&RenderLayers>,
     gizmo_axes: Single<Entity, With<GizmoAxes>>,
 ) {
     if let Ok(camera_controller) = camera_controllers.get(press.entity)
         && let Some(camera) = camera_controller.camera
-        && let Ok(mut pan_orbit_camera) = pan_orbit_cameras.get_mut(camera)
+        && let Ok((mut pan_orbit_camera, transform)) = pan_orbit_cameras.get_mut(camera)
         && !pan_orbit_camera.is_actively_controlled()
     {
         if let Ok(layer) = layers.get(camera) {
@@ -79,7 +69,11 @@ fn on_viewport_pointer_press(
         } else {
             commands.entity(*gizmo_axes).remove::<RenderLayers>();
         }
-        pan_orbit_camera.start_orbit(None);
+        pan_orbit_camera.start_orbit(Some(DVec3::new(
+            0.0,
+            0.0,
+            -transform.translation.length() as f64,
+        )));
     };
 }
 
@@ -116,20 +110,24 @@ fn on_viewport_pointer_scroll(
     scroll: On<PointerScroll>,
     mut commands: Commands,
     camera_controllers: Query<&CameraController>,
-    mut pan_orbit_cameras: Query<&mut PanOrbitCamera>,
+    mut pan_orbit_cameras: Query<(&mut PanOrbitCamera, &Transform)>,
     pixels_per_line: Res<MouseScrollPixelsPerLine>,
     layers: Query<&RenderLayers>,
     gizmo_axes: Single<Entity, With<GizmoAxes>>,
 ) {
     if let Ok(camera_controller) = camera_controllers.get(scroll.entity)
         && let Some(camera) = camera_controller.camera
-        && let Ok(mut pan_orbit_camera) = pan_orbit_cameras.get_mut(camera)
+        && let Ok((mut pan_orbit_camera, transform)) = pan_orbit_cameras.get_mut(camera)
     {
         if let Ok(layer) = layers.get(camera) {
             commands.entity(*gizmo_axes).insert(layer.clone());
         }
         let scroll = scroll.to_pixels(&pixels_per_line);
-        pan_orbit_camera.start_zoom(None);
+        pan_orbit_camera.start_zoom(Some(DVec3::new(
+            0.0,
+            0.0,
+            -transform.translation.length() as f64,
+        )));
         pan_orbit_camera.send_zoom_input(scroll.y);
     };
 }
