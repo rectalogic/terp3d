@@ -1,6 +1,19 @@
-use bevy::{camera::visibility::RenderLayers, color::palettes::css, prelude::*};
+use bevy::{
+    camera::visibility::RenderLayers,
+    color::palettes::css,
+    feathers::{
+        FeathersPlugins,
+        dark_theme::create_dark_theme,
+        theme::{ThemeBackgroundColor, UiTheme},
+        tokens,
+    },
+    prelude::*,
+};
 
-use crate::editor::{DrawingEditor, EditorPlugin};
+use crate::{
+    drawing_selector::DrawingSelector,
+    editor::{DrawingEditor, EditorPlugin},
+};
 
 pub struct AppPlugin;
 
@@ -15,8 +28,10 @@ impl Plugin for AppPlugin {
                 }),
                 ..default()
             }),
+            FeathersPlugins,
             EditorPlugin,
         ))
+        .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, setup);
     }
 }
@@ -27,28 +42,38 @@ const TARGET_LAYER: RenderLayers = RenderLayers::layer(2);
 fn setup(mut commands: Commands) {
     let all_layers = SOURCE_LAYER.union(&TARGET_LAYER);
     commands.spawn_scene_list(bsn_list! {
-        Camera2d
+        Camera3d
         IsDefaultUiCamera
         --
-        DrawingEditor { render_layers: SOURCE_LAYER }
-        BorderColor::all(css::YELLOW)
-        FixedNode
         Node {
-            left: percent(0),
-            width: percent(50),
+            width: percent(100),
             height: percent(100),
-            border: UiRect::all(px(8)),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
         }
-        --
-        DrawingEditor { render_layers: TARGET_LAYER }
-        BorderColor::all(css::BLUE)
-        FixedNode
-        Node {
-            left: percent(50),
-            width: percent(50),
-            height: percent(100),
-            border: UiRect::all(px(8)),
-        }
+        ThemeBackgroundColor(tokens::WINDOW_BG)
+        Children [
+            DrawingEditor { render_layers: SOURCE_LAYER }
+            BorderColor::all(css::YELLOW)
+            Node {
+                flex_grow: 1.0,
+                height: percent(100),
+                border: UiRect::all(px(8)),
+            }
+            --
+            @DrawingSelector {
+                @count: 3,
+                @selected: None,
+            }
+            --
+            DrawingEditor { render_layers: TARGET_LAYER }
+            BorderColor::all(css::BLUE)
+            Node {
+                flex_grow: 1.0,
+                height: percent(100),
+                border: UiRect::all(px(8)),
+            }
+        ]
         --
         @cube(Color::srgb_u8(124, 144, 255))
         SOURCE_LAYER
