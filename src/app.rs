@@ -30,7 +30,7 @@ fn setup(mut commands: Commands) {
         Camera2d
         IsDefaultUiCamera
         --
-        @DrawingEditor { @render_layers: SOURCE_LAYER }
+        DrawingEditor { render_layers: SOURCE_LAYER }
         BorderColor::all(css::YELLOW)
         FixedNode
         Node {
@@ -40,7 +40,7 @@ fn setup(mut commands: Commands) {
             border: UiRect::all(px(8)),
         }
         --
-        @DrawingEditor { @render_layers: TARGET_LAYER }
+        DrawingEditor { render_layers: TARGET_LAYER }
         BorderColor::all(css::BLUE)
         FixedNode
         Node {

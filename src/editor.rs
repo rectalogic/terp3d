@@ -13,45 +13,41 @@ pub struct EditorPlugin;
 
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(CameraControllerPlugin);
+        app.add_plugins(CameraControllerPlugin)
+            .add_observer(on_add_drawing_editor);
     }
 }
 
-#[derive(SceneComponent, Default, Clone)]
-#[scene(DrawingEditorProps)]
-pub struct DrawingEditor;
-
-#[derive(Default)]
-pub struct DrawingEditorProps {
+#[derive(Component, Default, Clone)]
+#[require(RenderLayers)]
+pub struct DrawingEditor {
     pub render_layers: RenderLayers,
 }
 
-#[derive(Component)]
-#[relationship(relationship_target = RenderingCamera)]
-struct ViewportOfRenderingCamera(pub Entity);
-
-#[derive(Component)]
-#[relationship_target(relationship = ViewportOfRenderingCamera, linked_spawn)]
-struct RenderingCamera(Entity);
-
-impl DrawingEditor {
-    fn scene(props: DrawingEditorProps) -> impl Scene {
-        let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
-
-        bsn! {
-            ViewportNode { camera: OptionTemplate::Some(#Camera) }
-            CameraController { camera: OptionTemplate::Some(#Camera) }
-            RenderingCamera [
-                #Camera
+fn on_add_drawing_editor(
+    add: On<Add<DrawingEditor>>,
+    mut commands: Commands,
+    q_drawing_editors: Query<&DrawingEditor>,
+) {
+    let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
+    if let Ok(drawing_editor) = q_drawing_editors.get(add.entity) {
+        let render_layers = drawing_editor.render_layers.clone();
+        let camera_entity = commands
+            .spawn_scene(bsn! {
                 Camera3d
                 Camera { order: -1 }
                 Transform::from_xyz(0., 0., 10.0).looking_at(Vec3::ZERO, Vec3::Y)
-                props.render_layers
+                render_layers
                 RenderTarget::Image(ImageRenderTargetTemplate {
                     handle: asset_value(image),
                     scale_factor: 1.0, //XXX default is 0, panics
                 })
-            ]
-        }
+            })
+            .id();
+
+        commands.entity(add.entity).apply_scene(bsn! {
+            ViewportNode { camera: OptionTemplate::Some(camera_entity) }
+            CameraController { camera: OptionTemplate::Some(camera_entity) }
+        });
     }
 }
