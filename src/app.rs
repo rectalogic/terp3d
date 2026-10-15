@@ -61,10 +61,14 @@ fn setup(mut commands: Commands) {
                 border: UiRect::all(px(8)),
             }
             --
-            @DrawingSelector {
-                @count: 3,
-                @selected: None,
+            Node {
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexStart,
+                //XXX want this to be alighed to top of column
             }
+            Children [
+                @DrawingSelector
+            ]
             --
             DrawingEditor { render_layers: TARGET_LAYER }
             BorderColor::all(css::BLUE)
