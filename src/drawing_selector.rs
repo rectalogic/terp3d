@@ -1,29 +1,32 @@
 use bevy::{
     feathers::{
-        containers::{flex_spacer, subpane, subpane_body, subpane_header},
+        containers::{subpane, subpane_body, subpane_header},
         controls::{FeathersButton, FeathersListRow, FeathersListView, OptionIndex},
         display::caption,
     },
     prelude::*,
     ui::Selected,
-    ui_widgets::{Activate, listbox_update_selection},
+    ui_widgets::{Activate, ValueChange, listbox_update_selection},
 };
 
-#[derive(SceneComponent, Clone, Default, Debug)]
-#[scene(DrawingSelectorProps)]
-pub struct DrawingSelector;
+use crate::drawings::{AddDrawing, SelectDrawing};
 
-#[derive(Default)]
-pub struct DrawingSelectorProps {
-    pub count: usize,
-    pub selected: Option<usize>,
+pub struct DrawingSelectorPlugin;
+
+impl Plugin for DrawingSelectorPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup);
+    }
 }
+
+#[derive(SceneComponent, Clone, Default, Debug)]
+pub struct DrawingSelector;
 
 #[derive(Component, Clone, FromTemplate)]
 struct TargetListView(Entity);
 
 impl DrawingSelector {
-    fn scene(props: DrawingSelectorProps) -> impl Scene {
+    fn scene() -> impl Scene {
         bsn! {
             @subpane() Children [
                 @subpane_header() Children [
@@ -32,15 +35,7 @@ impl DrawingSelector {
                 --
                 @subpane_header() Children [
                     @FeathersButton {
-                        @caption: bsn! { @caption("-") }
-                    }
-                    TargetListView(#ListView)
-                    on(on_remove_drawing)
-                    --
-                    @flex_spacer()
-                    --
-                    @FeathersButton {
-                        @caption: bsn! { @caption("+") }
+                        @caption: bsn! { @caption("New") }
                     }
                     TargetListView(#ListView)
                     on(on_add_drawing)
@@ -49,19 +44,39 @@ impl DrawingSelector {
                 @subpane_body() Children [
                     #ListView
                     Node {
-                        max_height: px(130)
+                        height: em(6),
+                        max_height: em(6),
                     }
                     @FeathersListView {
-                        @rows: { listview_rows(props) }
+                        @rows: { listview_rows(1) }
                     }
                     on(listbox_update_selection)
+                    on(listbox_select)
                 ]
             ]
         }
     }
 }
 
-fn listrow(index: usize, label: String, selected: bool) -> Box<dyn Scene> {
+fn setup(mut commands: Commands) {
+    // We initialize the list with one entry
+    commands.trigger(AddDrawing);
+}
+
+fn listbox_select(
+    value_change: On<ValueChange<Entity>>,
+    mut commands: Commands,
+    q_option_indexes: Query<&OptionIndex>,
+) {
+    let change = value_change.event();
+    let row = change.value;
+    if let Ok(index) = q_option_indexes.get(row) {
+        commands.trigger(SelectDrawing { index: index.0 });
+    }
+}
+
+fn listrow(index: usize, selected: bool) -> Box<dyn Scene> {
+    let label = index.to_string();
     if selected {
         bsn! { @FeathersListRow Selected OptionIndex(index) Children[@caption(label)] }.into()
     } else {
@@ -69,21 +84,10 @@ fn listrow(index: usize, label: String, selected: bool) -> Box<dyn Scene> {
     }
 }
 
-fn listview_rows(props: DrawingSelectorProps) -> Box<dyn SceneList> {
+fn listview_rows(count: usize) -> Box<dyn SceneList> {
     Box::new(
-        (0..=props.count)
-            .map(|i| -> Box<dyn Scene> {
-                if i == 0 {
-                    if props.selected.is_none() {
-                        bsn! { @FeathersListRow Selected Children[@caption("None")] }.into()
-                    } else {
-                        bsn! { @FeathersListRow Children[@caption("None")] }.into()
-                    }
-                } else {
-                    let index = i - 1;
-                    listrow(index, i.to_string(), Some(index) == props.selected)
-                }
-            })
+        (0..count)
+            .map(|i| -> Box<dyn Scene> { listrow(i, i == count - 1) })
             .collect::<Vec<_>>(),
     ) as Box<dyn SceneList>
 }
@@ -109,13 +113,9 @@ fn on_add_drawing(
         })
         .last()
     {
-        let new_row = commands
-            .spawn_scene(listrow(row_index, (row_index + 1).to_string(), true))
-            .id();
+        let new_row = commands.spawn_scene(listrow(row_index + 1, true)).id();
         commands.entity(listrow_parent.0).add_child(new_row);
     }
 
-    //XXX fire selection event for row_index-1
+    commands.trigger(AddDrawing);
 }
-
-fn on_remove_drawing(_activate: On<Activate>) {}

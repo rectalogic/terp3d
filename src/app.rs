@@ -3,6 +3,7 @@ use bevy::{
     color::palettes::css,
     feathers::{
         FeathersPlugins,
+        containers::flex_spacer,
         dark_theme::create_dark_theme,
         theme::{ThemeBackgroundColor, UiTheme},
         tokens,
@@ -11,7 +12,8 @@ use bevy::{
 };
 
 use crate::{
-    drawing_selector::DrawingSelector,
+    drawing_selector::{DrawingSelector, DrawingSelectorPlugin},
+    drawings::{DrawingContainer, DrawingsPlugin},
     editor::{DrawingEditor, EditorPlugin},
 };
 
@@ -30,6 +32,8 @@ impl Plugin for AppPlugin {
             }),
             FeathersPlugins,
             EditorPlugin,
+            DrawingsPlugin,
+            DrawingSelectorPlugin,
         ))
         .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, setup);
@@ -44,6 +48,14 @@ fn setup(mut commands: Commands) {
     commands.spawn_scene_list(bsn_list! {
         Camera3d
         IsDefaultUiCamera
+        --
+        DrawingContainer::Source
+        SOURCE_LAYER
+        Children []
+        --
+        DrawingContainer::Target
+        TARGET_LAYER
+        Children []
         --
         Node {
             width: percent(100),
@@ -64,7 +76,7 @@ fn setup(mut commands: Commands) {
             Node {
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::FlexStart,
-                //XXX want this to be alighed to top of column
+                height: percent(100),
             }
             Children [
                 @DrawingSelector
