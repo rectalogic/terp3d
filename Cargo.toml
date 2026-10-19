@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.20.0-dev", features = ["pan_orbit_camera", "bevy_feathers"] }
+rand = "0.10.3" # XXX remove
 
 [patch.crates-io]
 # Need https://github.com/bevyengine/bevy/commit/af1e2a274509f2498201a2d4fea4c1574f8e4a89

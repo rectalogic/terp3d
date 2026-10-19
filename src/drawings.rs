@@ -1,13 +1,21 @@
-use bevy::prelude::*;
+use bevy::{camera::visibility::RenderLayers, prelude::*};
 
 pub struct DrawingsPlugin;
 
 impl Plugin for DrawingsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(on_add_drawing)
-            .add_observer(on_select_drawing);
+        app.init_resource::<DrawingMesh>()
+            .add_systems(Startup, setup)
+            .add_observer(on_add_drawing)
+            .add_observer(on_select_drawing)
+            .add_observer(on_drawing_selected)
+            .add_observer(on_drawing_deselected)
+            .add_observer(on_draw);
     }
 }
+
+#[derive(Resource, Default)]
+struct DrawingMesh(Handle<Mesh>);
 
 #[derive(Event)]
 pub struct AddDrawing;
@@ -18,6 +26,7 @@ pub struct SelectDrawing {
 }
 
 #[derive(Component, Clone, Default)]
+#[require(Transform)]
 pub enum DrawingContainer {
     #[default]
     Source,
@@ -28,9 +37,14 @@ pub enum DrawingContainer {
 struct SelectedDrawing;
 
 #[derive(Component, Clone, FromTemplate)]
+#[require(Transform)]
 pub struct Drawing {
     pub material: Handle<StandardMaterial>,
     //XXX scale
+}
+
+fn setup(mut meshes: ResMut<Assets<Mesh>>, mut drawing_mesh: ResMut<DrawingMesh>) {
+    drawing_mesh.0 = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
 }
 
 fn deselect_drawings(commands: &mut Commands, drawings: &Children) {
@@ -43,27 +57,59 @@ fn on_add_drawing(
     _add: On<AddDrawing>,
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    q_drawing_containers: Query<Entity, With<DrawingContainer>>,
+    q_drawing_containers: Query<(Entity, &RenderLayers), With<DrawingContainer>>,
     q_children: Query<&Children>,
 ) {
-    q_drawing_containers.iter().for_each(|drawing_container| {
-        if let Ok(drawings) = q_children.get(drawing_container) {
-            deselect_drawings(&mut commands, drawings);
-        }
+    q_drawing_containers
+        .iter()
+        .for_each(|(drawing_container, render_layers)| {
+            if let Ok(drawings) = q_children.get(drawing_container) {
+                deselect_drawings(&mut commands, drawings);
+            }
 
-        //XXX get color from color selector, and scale (stored in Resources)
-        let material = materials.add(StandardMaterial {
-            base_color: Srgba::new(1.0, 0.0, 0.0, 1.0).into(),
-            ..default()
+            //XXX get color from color selector, and scale (stored in Resources)
+            let material = materials.add(StandardMaterial {
+                base_color: Srgba::new(1.0, 0.0, 0.0, 1.0).into(),
+                ..default()
+            });
+            let render_layers = render_layers.clone();
+            let drawing = commands
+                .spawn_scene(bsn! {
+                    Drawing { material }
+                    render_layers
+                    SelectedDrawing
+                })
+                .id();
+            commands.entity(drawing_container).add_child(drawing);
         });
-        let drawing = commands
+}
+
+//XXX placeholder, should respond to mouse events and add meshes
+fn on_draw(
+    add: On<Add<Drawing>>,
+    mut commands: Commands,
+    drawing_mesh: Res<DrawingMesh>,
+    q_drawings: Query<(&Drawing, &RenderLayers)>,
+) {
+    if let Ok((drawing, render_layers)) = q_drawings.get(add.entity) {
+        let mesh = drawing_mesh.0.clone();
+        let material = drawing.material.clone();
+        let transform = Transform::from_xyz(
+            rand::random_range(-3.0..3.0),
+            rand::random_range(-3.0..3.0),
+            rand::random_range(-3.0..3.0),
+        );
+        let render_layers = render_layers.clone();
+        let entity = commands
             .spawn_scene(bsn! {
-                Drawing { material }
-                SelectedDrawing
+                Mesh3d(mesh)
+                MeshMaterial3d::<StandardMaterial>(material)
+                transform
+                render_layers
             })
             .id();
-        commands.entity(drawing_container).add_child(drawing);
-    });
+        commands.entity(add.entity).add_child(entity);
+    }
 }
 
 fn on_select_drawing(
@@ -78,7 +124,30 @@ fn on_select_drawing(
             commands
                 .entity(drawings[select.index])
                 .insert(SelectedDrawing);
-            //XXX modify Drawing material to hilite selected (and modify when deselected) - do in separate On<Add>?
         }
     });
+}
+
+fn on_drawing_selected(
+    add: On<Add<SelectedDrawing>>,
+    q_drawings: Query<&Drawing>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if let Ok(drawing) = q_drawings.get(add.entity)
+        && let Some(mut material) = materials.get_mut(drawing.material.id())
+    {
+        material.emissive = LinearRgba::rgb(0.0, 0.0, 150.0);
+    }
+}
+
+fn on_drawing_deselected(
+    remove: On<Remove<SelectedDrawing>>,
+    q_drawings: Query<&Drawing>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if let Ok(drawing) = q_drawings.get(remove.entity)
+        && let Some(mut material) = materials.get_mut(drawing.material.id())
+    {
+        material.emissive = LinearRgba::BLACK;
+    }
 }

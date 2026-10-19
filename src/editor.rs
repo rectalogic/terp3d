@@ -2,8 +2,9 @@ use bevy::{
     asset::asset_value,
     camera::{ImageRenderTargetTemplate, RenderTarget, visibility::RenderLayers},
     ecs::template::OptionTemplate,
+    post_process::bloom::Bloom,
     prelude::*,
-    render::render_resource::TextureFormat,
+    render::{render_resource::TextureFormat, view::Tonemapping},
     ui::widget::ViewportNode,
 };
 
@@ -35,6 +36,8 @@ fn on_add_drawing_editor(
         let camera_entity = commands
             .spawn_scene(bsn! {
                 Camera3d
+                Tonemapping::TonyMcMapface
+                Bloom::NATURAL
                 Camera { order: -1 }
                 Transform::from_xyz(0., 0., 10.0).looking_at(Vec3::ZERO, Vec3::Y)
                 render_layers

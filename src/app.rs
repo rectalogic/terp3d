@@ -3,7 +3,6 @@ use bevy::{
     color::palettes::css,
     feathers::{
         FeathersPlugins,
-        containers::flex_spacer,
         dark_theme::create_dark_theme,
         theme::{ThemeBackgroundColor, UiTheme},
         tokens,
@@ -91,26 +90,10 @@ fn setup(mut commands: Commands) {
             }
         ]
         --
-        @cube(Color::srgb_u8(124, 144, 255))
-        SOURCE_LAYER
-        Transform::from_xyz(1.0, 1.0, 1.0)
-        --
-        @cube(Color::srgb_u8(124, 0, 0))
-        TARGET_LAYER
-        Transform::from_xyz(-1.0, -1.0, -1.0)
-        --
         all_layers
         DirectionalLight {
             illuminance: light_consts::lux::RAW_SUNLIGHT,
         }
-        Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y)
+        Transform::from_xyz(1.0, 1.0, -1.0).looking_at(Vec3::ZERO, Vec3::Y)
     });
-}
-
-fn cube(color: Color) -> impl Scene {
-    bsn! {
-        #Cube
-        Mesh3d(asset_value(Cuboid::new(1.0, 1.0, 1.0)))
-        MeshMaterial3d::<StandardMaterial>(asset_value(color))
-    }
 }
