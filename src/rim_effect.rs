@@ -20,20 +20,23 @@ pub struct RimEffect {
     #[uniform(100)]
     disabled: u32,
     #[uniform(100)]
-    width: f32,
+    color: LinearRgba,
     #[uniform(100)]
-    rim_color: LinearRgba,
+    power: f32, // 0.5..10
+    #[uniform(100)]
+    threshold: f32, // 0..1
     #[cfg(feature = "webgl2")]
     #[uniform(100)]
-    _webgl2_padding_8b: UVec2,
+    _webgl2_padding_4b: u32,
 }
 
 impl RimEffect {
-    pub fn new(disabled: bool, width: f32, rim_color: LinearRgba) -> Self {
+    pub fn new(disabled: bool, color: LinearRgba, power: f32, threshold: f32) -> Self {
         Self {
             disabled: disabled.into(),
-            width,
-            rim_color,
+            color,
+            power,
+            threshold,
         }
     }
 
@@ -44,7 +47,7 @@ impl RimEffect {
 
 impl Default for RimEffect {
     fn default() -> Self {
-        Self::new(false, 2.0, LinearRgba::rgb(1.0, 1.0, 0.0))
+        Self::new(false, LinearRgba::rgb(1.0, 1.0, 0.0), 3.0, 0.3)
     }
 }
 
