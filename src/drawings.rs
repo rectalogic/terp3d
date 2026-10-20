@@ -1,10 +1,16 @@
-use bevy::{camera::visibility::RenderLayers, prelude::*};
+use bevy::{
+    camera::visibility::RenderLayers, material::OpaqueRendererMethod, pbr::ExtendedMaterial,
+    prelude::*,
+};
+
+use crate::rim_effect::{RimEffect, RimEffectPlugin};
 
 pub struct DrawingsPlugin;
 
 impl Plugin for DrawingsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<DrawingMesh>()
+        app.add_plugins(RimEffectPlugin)
+            .init_resource::<DrawingMesh>()
             .add_systems(Startup, setup)
             .add_observer(on_add_drawing)
             .add_observer(on_select_drawing)
@@ -39,12 +45,12 @@ struct SelectedDrawing;
 #[derive(Component, Clone, FromTemplate)]
 #[require(Transform)]
 pub struct Drawing {
-    pub material: Handle<StandardMaterial>,
+    pub material: Handle<ExtendedMaterial<StandardMaterial, RimEffect>>,
     //XXX scale
 }
 
 fn setup(mut meshes: ResMut<Assets<Mesh>>, mut drawing_mesh: ResMut<DrawingMesh>) {
-    drawing_mesh.0 = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
+    drawing_mesh.0 = meshes.add(Sphere::new(0.5).mesh());
 }
 
 fn deselect_drawings(commands: &mut Commands, drawings: &Children) {
@@ -56,7 +62,7 @@ fn deselect_drawings(commands: &mut Commands, drawings: &Children) {
 fn on_add_drawing(
     _add: On<AddDrawing>,
     mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
     q_drawing_containers: Query<(Entity, &RenderLayers), With<DrawingContainer>>,
     q_children: Query<&Children>,
 ) {
@@ -68,9 +74,13 @@ fn on_add_drawing(
             }
 
             //XXX get color from color selector, and scale (stored in Resources)
-            let material = materials.add(StandardMaterial {
-                base_color: Srgba::new(1.0, 0.0, 0.0, 1.0).into(),
-                ..default()
+            let material = materials.add(ExtendedMaterial {
+                base: StandardMaterial {
+                    base_color: Srgba::new(1.0, 0.0, 0.0, 1.0).into(),
+                    opaque_render_method: OpaqueRendererMethod::Forward,
+                    ..Default::default()
+                },
+                extension: RimEffect::default(),
             });
             let render_layers = render_layers.clone();
             let drawing = commands
@@ -103,7 +113,7 @@ fn on_draw(
         let entity = commands
             .spawn_scene(bsn! {
                 Mesh3d(mesh)
-                MeshMaterial3d::<StandardMaterial>(material)
+                MeshMaterial3d::<ExtendedMaterial<StandardMaterial, RimEffect>>(material)
                 transform
                 render_layers
             })
@@ -131,23 +141,23 @@ fn on_select_drawing(
 fn on_drawing_selected(
     add: On<Add<SelectedDrawing>>,
     q_drawings: Query<&Drawing>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
 ) {
     if let Ok(drawing) = q_drawings.get(add.entity)
         && let Some(mut material) = materials.get_mut(drawing.material.id())
     {
-        material.emissive = LinearRgba::rgb(0.0, 0.0, 150.0);
+        material.extension.disable(false);
     }
 }
 
 fn on_drawing_deselected(
     remove: On<Remove<SelectedDrawing>>,
     q_drawings: Query<&Drawing>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
 ) {
     if let Ok(drawing) = q_drawings.get(remove.entity)
         && let Some(mut material) = materials.get_mut(drawing.material.id())
     {
-        material.emissive = LinearRgba::BLACK;
+        material.extension.disable(true);
     }
 }
