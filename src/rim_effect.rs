@@ -1,5 +1,7 @@
 use bevy::{
-    pbr::{ExtendedMaterial, MaterialExtension},
+    material::{descriptor::RenderPipelineDescriptor, specialize::SpecializedMeshPipelineError},
+    mesh::MeshVertexBufferLayoutRef,
+    pbr::{ExtendedMaterial, MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline},
     prelude::*,
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
@@ -16,9 +18,8 @@ impl Plugin for RimEffectPlugin {
 }
 
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
+#[bind_group_data(DisabledRimEffectKey)]
 pub struct RimEffect {
-    #[uniform(100)]
-    disabled: u32,
     #[uniform(100)]
     color: LinearRgba,
     #[uniform(100)]
@@ -27,7 +28,9 @@ pub struct RimEffect {
     threshold: f32, // 0..1
     #[cfg(feature = "webgl2")]
     #[uniform(100)]
-    _webgl2_padding_4b: u32,
+    _webgl2_padding_8b: UVec2,
+
+    disabled: bool,
 }
 
 impl RimEffect {
@@ -37,6 +40,8 @@ impl RimEffect {
             color,
             power,
             threshold,
+            #[cfg(feature = "webgl2")]
+            _webgl2_padding_8b: UVec2::default(),
         }
     }
 
@@ -56,5 +61,32 @@ const SHADER_ASSET_PATH: &str = "shaders/rim_effect.wesl";
 impl MaterialExtension for RimEffect {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
+    }
+
+    fn specialize(
+        _pipeline: &MaterialExtensionPipeline,
+        descriptor: &mut RenderPipelineDescriptor,
+        _layout: &MeshVertexBufferLayoutRef,
+        key: MaterialExtensionKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        if key.bind_group_data.disabled {
+            let fragment = descriptor.fragment.as_mut().unwrap();
+            fragment.shader_defs.push("DISABLED".into());
+        }
+        Ok(())
+    }
+}
+
+#[repr(C)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+pub struct DisabledRimEffectKey {
+    disabled: bool,
+}
+
+impl From<&RimEffect> for DisabledRimEffectKey {
+    fn from(material: &RimEffect) -> Self {
+        Self {
+            disabled: material.disabled,
+        }
     }
 }

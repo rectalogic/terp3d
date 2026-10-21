@@ -10,13 +10,12 @@ import bevy_pbr::render::{
 };
 
 struct RimEffectMaterial {
-    disabled: u32,
     color: vec4<f32>,
     power: f32,
     threshold: f32,
     // Web examples WebGL2 support: structs must be 16 byte aligned.
     @if(SIXTEEN_BYTE_ALIGNMENT)
-    _webgl2_padding_4b: u32,
+    _webgl2_padding_8b: vec2<u32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(100)
@@ -44,9 +43,8 @@ fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> Fragment
     out.color = apply_pbr_lighting(pbr_input);
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);
 
-    if rim_effect_material.disabled == 0 {
-        out.color += rim_effect(pbr_input);
-    }
+    @if(!DISABLED)
+    out.color += rim_effect(pbr_input);
 
     return out;
 }
