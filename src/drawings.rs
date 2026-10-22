@@ -1,9 +1,12 @@
 use bevy::{
-    camera::visibility::RenderLayers, material::OpaqueRendererMethod, pbr::ExtendedMaterial,
-    prelude::*,
+    camera::visibility::RenderLayers, feathers::controls::ColorInputValue,
+    material::OpaqueRendererMethod, pbr::ExtendedMaterial, prelude::*, ui_widgets::ValueChange,
 };
 
-use crate::rim_effect::{RimEffect, RimEffectPlugin};
+use crate::{
+    app::Interpolation,
+    rim_effect::{RimEffect, RimEffectPlugin},
+};
 
 pub struct DrawingsPlugin;
 
@@ -16,7 +19,8 @@ impl Plugin for DrawingsPlugin {
             .add_observer(on_select_drawing)
             .add_observer(on_drawing_selected)
             .add_observer(on_drawing_deselected)
-            .add_observer(on_draw);
+            .add_observer(on_draw)
+            .add_observer(on_drawing_color_change);
     }
 }
 
@@ -59,34 +63,44 @@ fn on_add_drawing(
     _add: On<AddDrawing>,
     mut commands: Commands,
     mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
-    q_drawing_containers: Query<(Entity, &RenderLayers), With<DrawingContainer>>,
+    q_drawing_containers: Query<(Entity, &RenderLayers, &Interpolation), With<DrawingContainer>>,
+    q_color_inputs: Query<(&ColorInputValue, &Interpolation)>,
     q_children: Query<&Children>,
 ) {
     q_drawing_containers
         .iter()
-        .for_each(|(drawing_container, render_layers)| {
+        .for_each(|(drawing_container, render_layers, interpolation)| {
             if let Ok(drawings) = q_children.get(drawing_container) {
                 deselect_drawings(&mut commands, drawings);
             }
 
-            //XXX get color from color selector, and scale (stored in Resources)
-            let material = materials.add(ExtendedMaterial {
-                base: StandardMaterial {
-                    base_color: Srgba::new(1.0, 0.0, 0.0, 1.0).into(),
-                    opaque_render_method: OpaqueRendererMethod::Forward,
-                    ..Default::default()
-                },
-                extension: RimEffect::default(),
-            });
-            let render_layers = render_layers.clone();
-            let drawing = commands
-                .spawn_scene(bsn! {
-                    Drawing { material }
-                    render_layers
-                    SelectedDrawing
-                })
-                .id();
-            commands.entity(drawing_container).add_child(drawing);
+            if let Some(current_color) =
+                q_color_inputs
+                    .iter()
+                    .find_map(|(color_input, color_interpolation)| {
+                        (color_interpolation == interpolation).then_some(color_input.0)
+                    })
+            {
+                let material = materials.add(ExtendedMaterial {
+                    base: StandardMaterial {
+                        base_color: current_color,
+                        opaque_render_method: OpaqueRendererMethod::Forward,
+                        ..Default::default()
+                    },
+                    extension: RimEffect::default(),
+                });
+                let render_layers = render_layers.clone();
+                let interpolation = *interpolation;
+                let drawing = commands
+                    .spawn_scene(bsn! {
+                        Drawing { material }
+                        render_layers
+                        interpolation
+                        SelectedDrawing
+                    })
+                    .id();
+                commands.entity(drawing_container).add_child(drawing);
+            }
         });
 }
 
@@ -155,5 +169,25 @@ fn on_drawing_deselected(
         && let Some(mut material) = materials.get_mut(drawing.material.id())
     {
         material.extension.disable(true);
+    }
+}
+
+fn on_drawing_color_change(
+    value_change: On<ValueChange<Color>>,
+    q_interpolations: Query<&Interpolation>,
+    q_selected_drawings: Query<(&Drawing, &Interpolation), With<SelectedDrawing>>,
+    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
+) {
+    if let Ok(color_interpolation) = q_interpolations.get(value_change.source) {
+        q_selected_drawings
+            .iter()
+            .filter_map(|(selected_drawing, interpolation)| {
+                (interpolation == color_interpolation).then_some(selected_drawing)
+            })
+            .for_each(|selected_drawing| {
+                if let Some(mut material) = materials.get_mut(selected_drawing.material.id()) {
+                    material.base.base_color = value_change.value;
+                }
+            });
     }
 }

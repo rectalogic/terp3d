@@ -42,7 +42,7 @@ impl Plugin for AppPlugin {
 const SOURCE_LAYER: RenderLayers = RenderLayers::layer(1);
 const TARGET_LAYER: RenderLayers = RenderLayers::layer(2);
 
-#[derive(Component, Clone, Copy, Default)]
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Interpolation {
     #[default]
     Source,
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands) {
         }
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children [
-            @DrawingEditor { @render_layers: SOURCE_LAYER }
+            @DrawingEditor { @interpolation: Interpolation::Source, @render_layers: SOURCE_LAYER }
             BorderColor::all(css::YELLOW)
             Node {
                 flex_grow: 1.0,
@@ -90,7 +90,7 @@ fn setup(mut commands: Commands) {
                 @DrawingSelector
             ]
             --
-            @DrawingEditor { @render_layers: TARGET_LAYER }
+            @DrawingEditor { @interpolation: Interpolation::Target, @render_layers: TARGET_LAYER }
             BorderColor::all(css::BLUE)
             Node {
                 flex_grow: 1.0,
