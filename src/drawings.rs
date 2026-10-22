@@ -33,11 +33,7 @@ pub struct SelectDrawing {
 
 #[derive(Component, Clone, Default)]
 #[require(Transform)]
-pub enum DrawingContainer {
-    #[default]
-    Source,
-    Target,
-}
+pub struct DrawingContainer;
 
 #[derive(Component, Clone, Default)]
 struct SelectedDrawing;

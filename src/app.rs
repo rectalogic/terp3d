@@ -42,17 +42,26 @@ impl Plugin for AppPlugin {
 const SOURCE_LAYER: RenderLayers = RenderLayers::layer(1);
 const TARGET_LAYER: RenderLayers = RenderLayers::layer(2);
 
+#[derive(Component, Clone, Copy, Default)]
+pub enum Interpolation {
+    #[default]
+    Source,
+    Target,
+}
+
 fn setup(mut commands: Commands) {
     let all_layers = SOURCE_LAYER.union(&TARGET_LAYER);
     commands.spawn_scene_list(bsn_list! {
         Camera3d
         IsDefaultUiCamera
         --
-        DrawingContainer::Source
+        DrawingContainer
+        Interpolation::Source
         SOURCE_LAYER
         Children []
         --
-        DrawingContainer::Target
+        DrawingContainer
+        Interpolation::Target
         TARGET_LAYER
         Children []
         --
