@@ -73,7 +73,7 @@ fn setup(mut commands: Commands) {
         }
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children [
-            DrawingEditor { render_layers: SOURCE_LAYER }
+            @DrawingEditor { @render_layers: SOURCE_LAYER }
             BorderColor::all(css::YELLOW)
             Node {
                 flex_grow: 1.0,
@@ -90,7 +90,7 @@ fn setup(mut commands: Commands) {
                 @DrawingSelector
             ]
             --
-            DrawingEditor { render_layers: TARGET_LAYER }
+            @DrawingEditor { @render_layers: TARGET_LAYER }
             BorderColor::all(css::BLUE)
             Node {
                 flex_grow: 1.0,
