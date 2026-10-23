@@ -2,7 +2,10 @@ use bevy::{
     asset::asset_value,
     camera::{ImageRenderTargetTemplate, RenderTarget, visibility::RenderLayers},
     ecs::template::OptionTemplate,
-    feathers::controls::{ColorInputValue, FeathersColorInput, color_input_self_update},
+    feathers::{
+        controls::{ColorInputValue, FeathersColorInput, color_input_self_update},
+        display::label,
+    },
     prelude::*,
     render::render_resource::TextureFormat,
     ui::widget::ViewportNode,
@@ -53,8 +56,11 @@ impl DrawingEditor {
                 Node {
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::FlexStart,
+                    align_items: AlignItems::Baseline,
                 }
                 Children [
+                    @label("Color")
+                    --
                     @FeathersColorInput
                     ColorInputValue
                     props.interpolation

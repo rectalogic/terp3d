@@ -42,7 +42,7 @@ impl Plugin for AppPlugin {
 const SOURCE_LAYER: RenderLayers = RenderLayers::layer(1);
 const TARGET_LAYER: RenderLayers = RenderLayers::layer(2);
 
-#[derive(Component, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Interpolation {
     #[default]
     Source,
