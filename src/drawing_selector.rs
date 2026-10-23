@@ -14,8 +14,8 @@ use crate::drawings::{AddDrawing, SelectDrawing};
 pub struct DrawingSelectorPlugin;
 
 impl Plugin for DrawingSelectorPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup);
+    fn build(&self, _app: &mut App) {
+        //XXX remove if unused
     }
 }
 
@@ -48,7 +48,12 @@ impl DrawingSelector {
                         max_height: em(6),
                     }
                     @FeathersListView {
-                        @rows: { listview_rows(1) }
+                        @rows: { bsn! {
+                            @FeathersListRow
+                            Node {
+                                display: Display::None
+                            }
+                        } }
                     }
                     on(listbox_update_selection)
                     on(listbox_select)
@@ -56,11 +61,6 @@ impl DrawingSelector {
             ]
         }
     }
-}
-
-fn setup(mut commands: Commands) {
-    // We initialize the list with one entry
-    commands.trigger(AddDrawing);
 }
 
 fn listbox_select(
@@ -84,14 +84,6 @@ fn listrow(index: usize, selected: bool) -> Box<dyn Scene> {
     }
 }
 
-fn listview_rows(count: usize) -> Box<dyn SceneList> {
-    Box::new(
-        (0..count)
-            .map(|i| -> Box<dyn Scene> { listrow(i, i == count - 1) })
-            .collect::<Vec<_>>(),
-    ) as Box<dyn SceneList>
-}
-
 fn on_add_drawing(
     activate: On<Activate>,
     mut commands: Commands,
@@ -113,8 +105,10 @@ fn on_add_drawing(
         })
         .last()
     {
-        let new_row = commands.spawn_scene(listrow(row_index + 1, true)).id();
-        commands.entity(listrow_parent.0).add_child(new_row);
+        let new_row = commands.spawn_scene(listrow(row_index, true)).id();
+        commands
+            .entity(listrow_parent.0)
+            .insert_child(row_index, new_row);
     }
 
     commands.trigger(AddDrawing);
