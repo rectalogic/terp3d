@@ -53,7 +53,7 @@ struct SelectedDrawing;
 #[require(Transform)]
 pub struct Drawing {
     pub material: Handle<ExtendedMaterial<StandardMaterial, RimEffect>>,
-    //XXX scale
+    pub scale: f32,
 }
 
 fn setup(mut meshes: ResMut<Assets<Mesh>>, mut drawing_mesh: ResMut<DrawingMesh>) {
@@ -89,15 +89,14 @@ fn on_add_drawing(
                 },
                 extension: RimEffect::default(),
             });
-            let transform = Transform::from_scale(Vec3::splat(drawing_config.scale));
             let render_layers = render_layers.clone();
             let interpolation = *interpolation;
+            let scale = drawing_config.scale;
             let drawing = commands
                 .spawn_scene(bsn! {
-                    Drawing { material }
+                    Drawing { material, scale }
                     render_layers
                     interpolation
-                    transform
                     SelectedDrawing
                 })
                 .id();
@@ -119,7 +118,8 @@ fn on_draw(
             rand::random_range(-3.0..3.0),
             rand::random_range(-3.0..3.0),
             rand::random_range(-3.0..3.0),
-        );
+        )
+        .with_scale(Vec3::splat(drawing.scale));
         let render_layers = render_layers.clone();
         let entity = commands
             .spawn_scene(bsn! {

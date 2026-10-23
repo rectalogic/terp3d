@@ -2,14 +2,16 @@ use bevy::{
     feathers::{
         containers::{subpane, subpane_body, subpane_header},
         controls::{
-            ColorInputValue, FeathersButton, FeathersListRow, FeathersListView, OptionIndex,
+            ColorInputValue, ColorSwatchValue, FeathersButton, FeathersColorSwatch,
+            FeathersListRow, FeathersListView, OptionIndex,
         },
         display::caption,
+        rounded_corners::RoundedCorners,
     },
     platform::collections::HashMap,
     prelude::*,
     ui::Selected,
-    ui_widgets::{Activate, ValueChange, listbox_update_selection},
+    ui_widgets::{Activate, NumericValue, ValueChange, listbox_update_selection},
 };
 
 use crate::{
@@ -81,39 +83,32 @@ fn listbox_select(
     }
 }
 
-fn listrow(index: usize, selected: bool) -> Box<dyn Scene> {
-    let label = index.to_string();
-    if selected {
-        bsn! { @FeathersListRow Selected OptionIndex(index) Children[@caption(label)] }.into()
-    } else {
-        bsn! { @FeathersListRow OptionIndex(index) Children[@caption(label)] }.into()
+fn new_row(index: usize, drawing_configs: &HashMap<Interpolation, DrawingConfig>) -> impl Scene {
+    let source_color = drawing_configs[&Interpolation::Source].color;
+    let target_color = drawing_configs[&Interpolation::Target].color;
+
+    bsn! {
+        @FeathersListRow
+        Node {
+            justify_content: JustifyContent::SpaceEvenly,
+        }
+        Selected
+        OptionIndex(index)
+        Children[
+            @FeathersColorSwatch {
+                @corners: RoundedCorners::All,
+            }
+            ColorSwatchValue(source_color)
+            --
+            @FeathersColorSwatch {
+                @corners: RoundedCorners::All,
+            }
+            ColorSwatchValue(target_color)
+        ]
     }
 }
 
-// fn on_add_drawing(
-//     _add: On<AddDrawing>,
-//     mut commands: Commands,
-//     mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
-//     q_drawing_containers: Query<(Entity, &RenderLayers, &Interpolation), With<DrawingContainer>>,
-//     q_color_inputs: Query<(&ColorInputValue, &Interpolation)>,
-//     q_children: Query<&Children>,
-// ) {
-//     q_drawing_containers
-//         .iter()
-//         .for_each(|(drawing_container, render_layers, interpolation)| {
-//             if let Ok(drawings) = q_children.get(drawing_container) {
-//                 deselect_drawings(&mut commands, drawings);
-//             }
-//
-//             if let Some(current_color) =
-//                 q_color_inputs
-//                     .iter()
-//                     .find_map(|(color_input, color_interpolation)| {
-//                         (color_interpolation == interpolation).then_some(color_input.0)
-//                     })
-//             {}
-//         });
-// }
+#[expect(clippy::too_many_arguments)]
 fn on_add_drawing(
     activate: On<Activate>,
     mut commands: Commands,
@@ -122,6 +117,7 @@ fn on_add_drawing(
     q_children: Query<&Children>,
     q_childof: Query<&ChildOf>,
     q_color_inputs: Query<(&Interpolation, &ColorInputValue)>,
+    q_number_inputs: Query<(&Interpolation, &NumericValue)>,
 ) {
     let Ok(target_listview) = q_listviews.get(activate.entity) else {
         return;
@@ -136,6 +132,16 @@ fn on_add_drawing(
         })
         .last()
     {
+        let scales = q_number_inputs
+            .iter()
+            .map(|(interpolation, number_input)| {
+                let scale = match number_input {
+                    NumericValue::F32(scale) => *scale,
+                    _ => 1.0,
+                };
+                (*interpolation, scale)
+            })
+            .collect::<HashMap<_, _>>();
         let drawing_configs = q_color_inputs
             .iter()
             .map(|(interpolation, color_input)| {
@@ -143,14 +149,15 @@ fn on_add_drawing(
                     *interpolation,
                     DrawingConfig {
                         color: color_input.0,
-                        scale: 1.0,
+                        scale: scales[interpolation],
                     },
                 )
             })
             .collect::<HashMap<_, _>>();
 
-        //XXX show colors in listrow
-        let new_row = commands.spawn_scene(listrow(row_index, true)).id();
+        let new_row = commands
+            .spawn_scene(new_row(row_index, &drawing_configs))
+            .id();
         commands
             .entity(listrow_parent.0)
             .insert_child(row_index, new_row);

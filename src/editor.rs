@@ -3,12 +3,16 @@ use bevy::{
     camera::{ImageRenderTargetTemplate, RenderTarget, visibility::RenderLayers},
     ecs::template::OptionTemplate,
     feathers::{
-        controls::{ColorInputValue, FeathersColorInput, color_input_self_update},
+        controls::{
+            ColorInputValue, FeathersColorInput, FeathersNumberInput, HardLimit,
+            NumberInputPrecision, NumberInputStep, SoftLimit, color_input_self_update,
+        },
         display::label,
     },
     prelude::*,
     render::render_resource::TextureFormat,
     ui::widget::ViewportNode,
+    ui_widgets::{NumericValue, ValueChange},
 };
 
 use crate::{
@@ -65,6 +69,23 @@ impl DrawingEditor {
                     ColorInputValue
                     props.interpolation
                     on(color_input_self_update)
+                    --
+                    @label("Size")
+                    --
+                    @FeathersNumberInput
+                    Node {
+                        max_width: px(100),
+                    }
+                    NumericValue::F32(1.0)
+                    props.interpolation
+                    NumberInputPrecision(1)
+                    NumberInputStep(0.1)
+                    SoftLimit::f32(0.1..=3.0)
+                    HardLimit::f32(0.1..=3.0)
+                    on(|value_change: On<ValueChange<f32>>, mut commands: Commands| {
+                        commands.entity(value_change.event_target())
+                            .insert(NumericValue::F32((value_change.value * 10.0).round() / 10.0));
+                    })
                 ]
                 --
                 Node {
