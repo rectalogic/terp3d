@@ -38,9 +38,9 @@ fn on_add_camera_controller(
 ) {
     commands
         .entity(add.entity)
-        .observe(on_viewport_pointer_press)
+        .observe(on_viewport_pointer_drag_start)
         .observe(on_viewport_pointer_drag)
-        .observe(on_viewport_pointer_release)
+        .observe(on_viewport_pointer_drag_end)
         .observe(on_viewport_pointer_scroll);
     if let Ok(camera_controller) = camera_controllers.get(add.entity)
         && let Some(camera_entity) = camera_controller.camera
@@ -51,15 +51,18 @@ fn on_add_camera_controller(
     }
 }
 
-fn on_viewport_pointer_press(
-    press: On<PointerPress>,
+fn on_viewport_pointer_drag_start(
+    dragstart: On<PointerDragStart>,
     mut commands: Commands,
+    input: Res<ButtonInput<KeyCode>>,
     camera_controllers: Query<&CameraController>,
     mut pan_orbit_cameras: Query<(&mut PanOrbitCamera, &Transform)>,
     layers: Query<&RenderLayers>,
     gizmo_axes: Single<Entity, With<GizmoAxes>>,
 ) {
-    if let Ok(camera_controller) = camera_controllers.get(press.entity)
+    // Editing uses Shift
+    if !input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+        && let Ok(camera_controller) = camera_controllers.get(dragstart.entity)
         && let Some(camera) = camera_controller.camera
         && let Ok((mut pan_orbit_camera, transform)) = pan_orbit_cameras.get_mut(camera)
         && !pan_orbit_camera.is_actively_controlled()
@@ -85,21 +88,23 @@ fn on_viewport_pointer_drag(
     if let Ok(camera_controller) = camera_controllers.get(drag.entity)
         && let Some(camera) = camera_controller.camera
         && let Ok(mut pan_orbit_camera) = pan_orbit_cameras.get_mut(camera)
+        && pan_orbit_camera.is_actively_controlled()
     {
         pan_orbit_camera.send_screenspace_input(drag.delta);
     };
 }
 
-fn on_viewport_pointer_release(
-    release: On<PointerRelease>,
+fn on_viewport_pointer_drag_end(
+    dragend: On<PointerDragEnd>,
     mut commands: Commands,
     camera_controllers: Query<&CameraController>,
     mut pan_orbit_cameras: Query<&mut PanOrbitCamera>,
     gizmo_axes: Single<Entity, With<GizmoAxes>>,
 ) {
-    if let Ok(camera_controller) = camera_controllers.get(release.entity)
+    if let Ok(camera_controller) = camera_controllers.get(dragend.entity)
         && let Some(camera) = camera_controller.camera
         && let Ok(mut pan_orbit_camera) = pan_orbit_cameras.get_mut(camera)
+        && pan_orbit_camera.is_actively_controlled()
     {
         commands.entity(*gizmo_axes).insert(RenderLayers::none());
         pan_orbit_camera.end_move();

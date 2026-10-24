@@ -20,6 +20,8 @@ use crate::{
     camera_controller::{CameraController, CameraControllerPlugin},
 };
 
+const EDIT_DISTANCE: f32 = 5.0;
+
 pub struct EditorPlugin;
 
 impl Plugin for EditorPlugin {
@@ -47,9 +49,28 @@ struct CameraLink(pub Entity);
 #[relationship_target(relationship = CameraLink, linked_spawn)]
 struct LinkedCamera(Entity);
 
+#[derive(Component, Clone, Default)]
+struct EditGrid;
+
+#[derive(Component, Clone, FromTemplate)]
+struct LinkedEditGrid(Entity);
+
 impl DrawingEditor {
     fn scene(props: DrawingEditorProps) -> impl Scene {
+        // Drawing plane
+        // XXX share Asset among components
+        let mut edit_grid_gizmo_asset = GizmoAsset::default();
+        edit_grid_gizmo_asset
+            .grid(
+                Isometry3d::IDENTITY,
+                UVec2::splat(7),
+                Vec2::splat(0.5),
+                Srgba::new(1.0, 1.0, 0.0, 0.3),
+            )
+            .outer_edges();
+
         let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
+        let render_layers = props.render_layers.clone();
 
         bsn! {
             Node {
@@ -93,6 +114,10 @@ impl DrawingEditor {
                 }
                 ViewportNode { camera: OptionTemplate::Some(#Camera) }
                 CameraController { camera: OptionTemplate::Some(#Camera) }
+                LinkedEditGrid(#EditGrid)
+                on(on_editor_pointer_drag_start)
+                on(on_editor_pointer_drag)
+                on(on_editor_pointer_drag_end)
                 LinkedCamera [
                     #Camera
                     Camera3d
@@ -103,8 +128,74 @@ impl DrawingEditor {
                         handle: asset_value(image),
                         scale_factor: 1.0, //XXX default is 0, panics
                     })
+                    Children [
+                        #EditGrid
+                        EditGrid
+                        Gizmo {
+                            handle: asset_value(edit_grid_gizmo_asset),
+                            line_config: GizmoLineConfig { width: 3.0 }
+                        }
+                        render_layers
+                        Visibility::Hidden //XXX doesn't work
+                        Transform::from_xyz(0., 0., -EDIT_DISTANCE)
+                    ]
                 ]
             ]
         }
+    }
+}
+
+fn on_editor_pointer_drag_start(
+    dragstart: On<PointerDragStart>,
+    mut commands: Commands,
+    input: Res<ButtonInput<KeyCode>>,
+    q_linked_edit_grids: Query<&LinkedEditGrid>,
+) {
+    if input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+        && let Ok(linked_edit_grid) = q_linked_edit_grids.get(dragstart.entity)
+    {
+        commands
+            .entity(linked_edit_grid.0)
+            .insert(Visibility::Inherited);
+    }
+}
+
+fn on_editor_pointer_drag(
+    drag: On<PointerDrag>,
+    q_viewport_nodes: Query<&ViewportNode>,
+    q_cameras: Query<(&Camera, &GlobalTransform)>,
+    q_edit_grid_visibilities: Query<&InheritedVisibility, With<EditGrid>>,
+    q_linked_edit_grids: Query<&LinkedEditGrid>,
+) {
+    //XXX can we draw while orbiting? start and orbit, then press shift, dragging should then do both - so need this to also make grid visible if shift pressed
+    // XXX handle zoom/scroll too - draw while zooming if Shift
+    if let Ok(linked_edit_grid) = q_linked_edit_grids.get(drag.entity)
+        && let Ok(visibility) = q_edit_grid_visibilities.get(linked_edit_grid.0)
+        && visibility.get()
+        && let Ok(viewport_node) = q_viewport_nodes.get(drag.entity)
+        && let Some(camera_entity) = viewport_node.camera
+        && let Ok((camera, camera_transform)) = q_cameras.get(camera_entity)
+        && let Ok(ray) = camera.viewport_to_world(camera_transform, drag.pointer.position)
+    {
+        let forward = camera_transform.forward();
+        let plane_origin = camera_transform.translation() + forward * EDIT_DISTANCE;
+        let plane = InfinitePlane3d::new(forward);
+        if let Some(ray_distance) = ray.intersect_plane(plane_origin, plane) {
+            let point = ray.get_point(ray_distance);
+            info!("{point:?}"); //XXX
+            //XXX trigger event with world coordinates
+        };
+    }
+}
+
+fn on_editor_pointer_drag_end(
+    dragend: On<PointerDragEnd>,
+    mut commands: Commands,
+    q_linked_edit_grids: Query<&LinkedEditGrid>,
+) {
+    if let Ok(linked_edit_grid) = q_linked_edit_grids.get(dragend.entity) {
+        commands
+            .entity(linked_edit_grid.0)
+            .insert(Visibility::Hidden);
     }
 }
