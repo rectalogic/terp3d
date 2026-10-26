@@ -25,11 +25,6 @@ impl Plugin for CameraControllerPlugin {
     }
 }
 
-#[derive(EntityEvent)]
-pub struct ZoomFinished {
-    pub entity: Entity,
-}
-
 #[derive(Component, Clone, Default, Debug, FromTemplate)]
 pub struct CameraController {
     #[template(built_in)]
@@ -158,9 +153,6 @@ fn end_viewport_zoom(
         if zoom_settled {
             commands.entity(*gizmo_axes).insert(RenderLayers::none());
             controller.end_move();
-            commands.trigger(ZoomFinished {
-                entity: controller_entity,
-            });
         }
     }
 }

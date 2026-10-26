@@ -5,19 +5,21 @@ use bevy::{
     feathers::{
         controls::{
             ColorInputValue, FeathersColorInput, FeathersNumberInput, HardLimit,
-            NumberInputPrecision, NumberInputStep, SoftLimit, color_input_self_update,
+            NumberInputPrecision, NumberInputStep, NumberInputValue, SoftLimit,
+            color_input_self_update,
         },
         display::label,
     },
+    picking::hover::Hovered,
     prelude::*,
     render::render_resource::TextureFormat,
     ui::widget::ViewportNode,
-    ui_widgets::{NumericValue, ValueChange},
+    ui_widgets::ValueChange,
 };
 
 use crate::{
     app::Interpolation,
-    camera_controller::{CameraController, CameraControllerPlugin, ZoomFinished},
+    camera_controller::{CameraController, CameraControllerPlugin},
 };
 
 const EDIT_DISTANCE: f32 = 5.0;
@@ -26,7 +28,8 @@ pub struct EditorPlugin;
 
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(CameraControllerPlugin);
+        app.add_plugins(CameraControllerPlugin)
+            .add_systems(Update, handle_edit_grid_visibility);
     }
 
     fn finish(&self, app: &mut App) {
@@ -105,7 +108,7 @@ impl DrawingEditor {
                     Node {
                         max_width: px(100),
                     }
-                    NumericValue::F32(1.0)
+                    NumberInputValue::F32(1.0)
                     props.interpolation
                     NumberInputPrecision(1)
                     NumberInputStep(0.1)
@@ -113,21 +116,20 @@ impl DrawingEditor {
                     HardLimit::f32(0.1..=3.0)
                     on(|value_change: On<ValueChange<f32>>, mut commands: Commands| {
                         commands.entity(value_change.event_target())
-                            .insert(NumericValue::F32((value_change.value * 10.0).round() / 10.0));
+                            .insert(NumberInputValue::F32((value_change.value * 10.0).round() / 10.0));
                     })
                 ]
                 --
                 Node {
                     flex_grow: 1.0,
                 }
+                Hovered
                 ViewportNode { camera: OptionTemplate::Some(#Camera) }
                 CameraController { camera: OptionTemplate::Some(#Camera) }
                 LinkedEditGrid(#EditGrid)
-                on(on_editor_pointer_drag_start)
                 on(on_editor_pointer_drag)
                 on(on_editor_pointer_drag_end)
                 on(on_editor_pointer_scroll)
-                on(on_editor_zoom_finished)
                 LinkedCamera [
                     #Camera
                     Camera3d
@@ -158,21 +160,6 @@ impl DrawingEditor {
                 ]
             ]
         }
-    }
-}
-
-fn on_editor_pointer_drag_start(
-    dragstart: On<PointerDragStart>,
-    mut commands: Commands,
-    input: Res<ButtonInput<KeyCode>>,
-    q_linked_edit_grids: Query<&LinkedEditGrid>,
-) {
-    if input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
-        && let Ok(linked_edit_grid) = q_linked_edit_grids.get(dragstart.entity)
-    {
-        commands
-            .entity(linked_edit_grid.0)
-            .insert(Visibility::Inherited);
     }
 }
 
@@ -220,23 +207,16 @@ fn on_editor_pointer_drag_end(
 
 fn on_editor_pointer_scroll(
     scroll: On<PointerScroll>,
-    mut commands: Commands,
     input: Res<ButtonInput<KeyCode>>,
     q_viewport_nodes: Query<&ViewportNode>,
     q_cameras: Query<(&Camera, &GlobalTransform)>,
-    q_linked_edit_grids: Query<&LinkedEditGrid>,
 ) {
     if input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
-        && let Ok(linked_edit_grid) = q_linked_edit_grids.get(scroll.entity)
         && let Ok(viewport_node) = q_viewport_nodes.get(scroll.entity)
         && let Some(camera_entity) = viewport_node.camera
         && let Ok((camera, camera_transform)) = q_cameras.get(camera_entity)
         && let Ok(ray) = camera.viewport_to_world(camera_transform, scroll.pointer.position)
     {
-        commands
-            .entity(linked_edit_grid.0)
-            .insert(Visibility::Inherited);
-
         let forward = camera_transform.forward();
         let plane_origin = camera_transform.translation() + forward * EDIT_DISTANCE;
         let plane = InfinitePlane3d::new(forward);
@@ -248,14 +228,27 @@ fn on_editor_pointer_scroll(
     }
 }
 
-fn on_editor_zoom_finished(
-    zoom: On<ZoomFinished>,
+fn handle_edit_grid_visibility(
     mut commands: Commands,
+    input: Res<ButtonInput<KeyCode>>,
+    q_viewport_node_hover: Query<(Entity, &Hovered), With<ViewportNode>>,
     q_linked_edit_grids: Query<&LinkedEditGrid>,
 ) {
-    if let Ok(linked_edit_grid) = q_linked_edit_grids.get(zoom.entity) {
-        commands
-            .entity(linked_edit_grid.0)
-            .insert(Visibility::Hidden);
+    let visibility = if input.any_just_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
+        Visibility::Inherited
+    } else if input.any_just_released([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+        && !input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+    {
+        Visibility::Hidden
+    } else {
+        return;
+    };
+
+    for (entity, hovered) in q_viewport_node_hover {
+        if hovered.get()
+            && let Ok(linked_edit_grid) = q_linked_edit_grids.get(entity)
+        {
+            commands.entity(linked_edit_grid.0).insert(visibility);
+        }
     }
 }

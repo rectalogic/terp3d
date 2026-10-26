@@ -3,7 +3,7 @@ use bevy::{
         containers::{subpane, subpane_body, subpane_header},
         controls::{
             ColorInputValue, ColorSwatchValue, FeathersButton, FeathersColorSwatch,
-            FeathersListRow, FeathersListView, OptionIndex,
+            FeathersListRow, FeathersListView, NumberInputValue, OptionIndex,
         },
         display::caption,
         rounded_corners::RoundedCorners,
@@ -11,7 +11,7 @@ use bevy::{
     platform::collections::HashMap,
     prelude::*,
     ui::Selected,
-    ui_widgets::{Activate, NumericValue, ValueChange, listbox_update_selection},
+    ui_widgets::{Activate, ValueChange, listbox_update_selection},
 };
 
 use crate::{
@@ -117,7 +117,7 @@ fn on_add_drawing(
     q_children: Query<&Children>,
     q_childof: Query<&ChildOf>,
     q_color_inputs: Query<(&Interpolation, &ColorInputValue)>,
-    q_number_inputs: Query<(&Interpolation, &NumericValue)>,
+    q_number_inputs: Query<(&Interpolation, &NumberInputValue)>,
 ) {
     let Ok(target_listview) = q_listviews.get(activate.entity) else {
         return;
@@ -136,7 +136,7 @@ fn on_add_drawing(
             .iter()
             .map(|(interpolation, number_input)| {
                 let scale = match number_input {
-                    NumericValue::F32(scale) => *scale,
+                    NumberInputValue::F32(scale) => *scale,
                     _ => 1.0,
                 };
                 (*interpolation, scale)
