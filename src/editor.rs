@@ -28,6 +28,23 @@ impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(CameraControllerPlugin);
     }
+
+    fn finish(&self, app: &mut App) {
+        if let Some(mut gizmo_assets) = app.world_mut().get_resource_mut::<Assets<GizmoAsset>>() {
+            // Drawing plane
+            let mut edit_grid_gizmo_asset = GizmoAsset::default();
+            edit_grid_gizmo_asset
+                .grid(
+                    Isometry3d::IDENTITY,
+                    UVec2::splat(7),
+                    Vec2::splat(0.5),
+                    Srgba::new(1.0, 1.0, 0.0, 0.3),
+                )
+                .outer_edges();
+            let gizmo_handle = gizmo_assets.add(edit_grid_gizmo_asset);
+            app.insert_resource(EditGridAsset(gizmo_handle));
+        }
+    }
 }
 
 #[derive(SceneComponent, Default, Clone)]
@@ -49,6 +66,9 @@ struct CameraLink(pub Entity);
 #[relationship_target(relationship = CameraLink, linked_spawn)]
 struct LinkedCamera(Entity);
 
+#[derive(Resource, Clone, Default)]
+struct EditGridAsset(Handle<GizmoAsset>);
+
 #[derive(Component, Clone, Default)]
 struct EditGrid;
 
@@ -57,18 +77,6 @@ struct LinkedEditGrid(Entity);
 
 impl DrawingEditor {
     fn scene(props: DrawingEditorProps) -> impl Scene {
-        // Drawing plane
-        // XXX share Asset among components
-        let mut edit_grid_gizmo_asset = GizmoAsset::default();
-        edit_grid_gizmo_asset
-            .grid(
-                Isometry3d::IDENTITY,
-                UVec2::splat(7),
-                Vec2::splat(0.5),
-                Srgba::new(1.0, 1.0, 0.0, 0.3),
-            )
-            .outer_edges();
-
         let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
         let render_layers = props.render_layers.clone();
 
@@ -131,10 +139,16 @@ impl DrawingEditor {
                     Children [
                         #EditGrid
                         EditGrid
-                        Gizmo {
-                            handle: asset_value(edit_grid_gizmo_asset),
-                            line_config: GizmoLineConfig { width: 3.0 }
-                        }
+                        template(|ctx| {
+                            Ok(Gizmo {
+                                handle: ctx.resource::<EditGridAsset>().0.clone(),
+                                line_config: GizmoLineConfig {
+                                    width: 3.0,
+                                    ..default()
+                                },
+                                ..default()
+                            })
+                        })
                         render_layers
                         Visibility::Hidden //XXX doesn't work
                         Transform::from_xyz(0., 0., -EDIT_DISTANCE)
