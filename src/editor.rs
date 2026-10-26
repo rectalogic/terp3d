@@ -50,6 +50,12 @@ impl Plugin for EditorPlugin {
     }
 }
 
+#[derive(Event)]
+pub struct EditDrawing {
+    pub interpolation: Interpolation,
+    pub origin: Vec3,
+}
+
 #[derive(SceneComponent, Default, Clone)]
 #[scene(DrawingEditorProps)]
 #[require(RenderLayers)]
@@ -124,6 +130,7 @@ impl DrawingEditor {
                     flex_grow: 1.0,
                 }
                 Hovered
+                props.interpolation
                 ViewportNode { camera: OptionTemplate::Some(#Camera) }
                 CameraController { camera: OptionTemplate::Some(#Camera) }
                 LinkedEditGrid(#EditGrid)
@@ -154,7 +161,7 @@ impl DrawingEditor {
                             })
                         })
                         render_layers
-                        Visibility::Hidden //XXX doesn't work
+                        Visibility::Hidden
                         Transform::from_xyz(0., 0., -EDIT_DISTANCE)
                     ]
                 ]
@@ -163,34 +170,40 @@ impl DrawingEditor {
     }
 }
 
-fn on_editor_pointer_drag(
-    drag: On<PointerDrag>,
-    mut commands: Commands,
+fn send_edit_draw_events<E: PointerEvent>(
+    event: &E,
     input: Res<ButtonInput<KeyCode>>,
-    q_viewport_nodes: Query<&ViewportNode>,
+    mut commands: Commands,
+    q_viewport_nodes: Query<(&ViewportNode, &Interpolation)>,
     q_cameras: Query<(&Camera, &GlobalTransform)>,
-    q_linked_edit_grids: Query<&LinkedEditGrid>,
 ) {
     if input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
-        && let Ok(linked_edit_grid) = q_linked_edit_grids.get(drag.entity)
-        && let Ok(viewport_node) = q_viewport_nodes.get(drag.entity)
+        && let Ok((viewport_node, interpolation)) = q_viewport_nodes.get(event.event_target())
         && let Some(camera_entity) = viewport_node.camera
         && let Ok((camera, camera_transform)) = q_cameras.get(camera_entity)
-        && let Ok(ray) = camera.viewport_to_world(camera_transform, drag.pointer.position)
+        && let Ok(ray) = camera.viewport_to_world(camera_transform, event.pointer().position)
     {
-        commands
-            .entity(linked_edit_grid.0)
-            .insert(Visibility::Inherited);
-
         let forward = camera_transform.forward();
         let plane_origin = camera_transform.translation() + forward * EDIT_DISTANCE;
         let plane = InfinitePlane3d::new(forward);
         if let Some(ray_distance) = ray.intersect_plane(plane_origin, plane) {
             let point = ray.get_point(ray_distance);
-            info!("drag {point:?}"); //XXX
-            //XXX trigger event with world coordinates
+            commands.trigger(EditDrawing {
+                interpolation: *interpolation,
+                origin: point,
+            });
         };
     }
+}
+
+fn on_editor_pointer_drag(
+    drag: On<PointerDrag>,
+    input: Res<ButtonInput<KeyCode>>,
+    commands: Commands,
+    q_viewport_nodes: Query<(&ViewportNode, &Interpolation)>,
+    q_cameras: Query<(&Camera, &GlobalTransform)>,
+) {
+    send_edit_draw_events(drag.event(), input, commands, q_viewport_nodes, q_cameras);
 }
 
 fn on_editor_pointer_drag_end(
@@ -208,24 +221,11 @@ fn on_editor_pointer_drag_end(
 fn on_editor_pointer_scroll(
     scroll: On<PointerScroll>,
     input: Res<ButtonInput<KeyCode>>,
-    q_viewport_nodes: Query<&ViewportNode>,
+    commands: Commands,
+    q_viewport_nodes: Query<(&ViewportNode, &Interpolation)>,
     q_cameras: Query<(&Camera, &GlobalTransform)>,
 ) {
-    if input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
-        && let Ok(viewport_node) = q_viewport_nodes.get(scroll.entity)
-        && let Some(camera_entity) = viewport_node.camera
-        && let Ok((camera, camera_transform)) = q_cameras.get(camera_entity)
-        && let Ok(ray) = camera.viewport_to_world(camera_transform, scroll.pointer.position)
-    {
-        let forward = camera_transform.forward();
-        let plane_origin = camera_transform.translation() + forward * EDIT_DISTANCE;
-        let plane = InfinitePlane3d::new(forward);
-        if let Some(ray_distance) = ray.intersect_plane(plane_origin, plane) {
-            let point = ray.get_point(ray_distance);
-            info!("scroll {point:?}"); //XXX
-            //XXX trigger event with world coordinates
-        };
-    }
+    send_edit_draw_events(scroll.event(), input, commands, q_viewport_nodes, q_cameras);
 }
 
 fn handle_edit_grid_visibility(

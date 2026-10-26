@@ -139,10 +139,10 @@ fn on_viewport_pointer_scroll(
 
 fn end_viewport_zoom(
     mut commands: Commands,
-    mut cameras: Query<(Entity, &mut PanOrbitCamera)>,
+    mut cameras: Query<&mut PanOrbitCamera>,
     gizmo_axes: Single<Entity, With<GizmoAxes>>,
 ) {
-    for (controller_entity, mut controller) in &mut cameras {
+    for mut controller in &mut cameras {
         let zoom_settled = controller.current_motion.is_zooming_only()
             && controller
                 .current_motion

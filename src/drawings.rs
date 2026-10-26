@@ -5,6 +5,7 @@ use bevy::{
 
 use crate::{
     app::Interpolation,
+    editor::EditDrawing,
     rim_effect::{RimEffect, RimEffectPlugin},
 };
 
@@ -19,7 +20,7 @@ impl Plugin for DrawingsPlugin {
             .add_observer(on_select_drawing)
             .add_observer(on_drawing_selected)
             .add_observer(on_drawing_deselected)
-            .add_observer(on_draw);
+            .add_observer(on_edit_drawing);
     }
 }
 
@@ -104,32 +105,29 @@ fn on_add_drawing(
         });
 }
 
-//XXX placeholder, should respond to mouse events and add meshes
-fn on_draw(
-    add: On<Add<Drawing>>,
+fn on_edit_drawing(
+    edit: On<EditDrawing>,
     mut commands: Commands,
     drawing_mesh: Res<DrawingMesh>,
-    q_drawings: Query<(&Drawing, &RenderLayers)>,
+    q_drawings: Query<(Entity, &Drawing, &RenderLayers, &Interpolation), With<SelectedDrawing>>,
 ) {
-    if let Ok((drawing, render_layers)) = q_drawings.get(add.entity) {
-        let mesh = drawing_mesh.0.clone();
-        let material = drawing.material.clone();
-        let transform = Transform::from_xyz(
-            rand::random_range(-3.0..3.0),
-            rand::random_range(-3.0..3.0),
-            rand::random_range(-3.0..3.0),
-        )
-        .with_scale(Vec3::splat(drawing.scale));
-        let render_layers = render_layers.clone();
-        let entity = commands
-            .spawn_scene(bsn! {
-                Mesh3d(mesh)
-                MeshMaterial3d::<ExtendedMaterial<StandardMaterial, RimEffect>>(material)
-                transform
-                render_layers
-            })
-            .id();
-        commands.entity(add.entity).add_child(entity);
+    for (drawing_entity, drawing, render_layers, interpolation) in q_drawings {
+        if *interpolation == edit.interpolation {
+            let mesh = drawing_mesh.0.clone();
+            let material = drawing.material.clone();
+            let transform =
+                Transform::from_translation(edit.origin).with_scale(Vec3::splat(drawing.scale));
+            let render_layers = render_layers.clone();
+            let entity = commands
+                .spawn_scene(bsn! {
+                    Mesh3d(mesh)
+                    MeshMaterial3d::<ExtendedMaterial<StandardMaterial, RimEffect>>(material)
+                    transform
+                    render_layers
+                })
+                .id();
+            commands.entity(drawing_entity).add_child(entity);
+        }
     }
 }
 
