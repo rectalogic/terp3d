@@ -17,7 +17,7 @@ use bevy::{
 
 use crate::{
     app::Interpolation,
-    camera_controller::{CameraController, CameraControllerPlugin},
+    camera_controller::{CameraController, CameraControllerPlugin, ZoomFinished},
 };
 
 const EDIT_DISTANCE: f32 = 5.0;
@@ -126,6 +126,8 @@ impl DrawingEditor {
                 on(on_editor_pointer_drag_start)
                 on(on_editor_pointer_drag)
                 on(on_editor_pointer_drag_end)
+                on(on_editor_pointer_scroll)
+                on(on_editor_zoom_finished)
                 LinkedCamera [
                     #Camera
                     Camera3d
@@ -176,27 +178,29 @@ fn on_editor_pointer_drag_start(
 
 fn on_editor_pointer_drag(
     drag: On<PointerDrag>,
+    mut commands: Commands,
+    input: Res<ButtonInput<KeyCode>>,
     q_viewport_nodes: Query<&ViewportNode>,
     q_cameras: Query<(&Camera, &GlobalTransform)>,
-    q_edit_grid_visibilities: Query<&InheritedVisibility, With<EditGrid>>,
     q_linked_edit_grids: Query<&LinkedEditGrid>,
 ) {
-    //XXX can we draw while orbiting? start and orbit, then press shift, dragging should then do both - so need this to also make grid visible if shift pressed
-    // XXX handle zoom/scroll too - draw while zooming if Shift
-    if let Ok(linked_edit_grid) = q_linked_edit_grids.get(drag.entity)
-        && let Ok(visibility) = q_edit_grid_visibilities.get(linked_edit_grid.0)
-        && visibility.get()
+    if input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+        && let Ok(linked_edit_grid) = q_linked_edit_grids.get(drag.entity)
         && let Ok(viewport_node) = q_viewport_nodes.get(drag.entity)
         && let Some(camera_entity) = viewport_node.camera
         && let Ok((camera, camera_transform)) = q_cameras.get(camera_entity)
         && let Ok(ray) = camera.viewport_to_world(camera_transform, drag.pointer.position)
     {
+        commands
+            .entity(linked_edit_grid.0)
+            .insert(Visibility::Inherited);
+
         let forward = camera_transform.forward();
         let plane_origin = camera_transform.translation() + forward * EDIT_DISTANCE;
         let plane = InfinitePlane3d::new(forward);
         if let Some(ray_distance) = ray.intersect_plane(plane_origin, plane) {
             let point = ray.get_point(ray_distance);
-            info!("{point:?}"); //XXX
+            info!("drag {point:?}"); //XXX
             //XXX trigger event with world coordinates
         };
     }
@@ -208,6 +212,48 @@ fn on_editor_pointer_drag_end(
     q_linked_edit_grids: Query<&LinkedEditGrid>,
 ) {
     if let Ok(linked_edit_grid) = q_linked_edit_grids.get(dragend.entity) {
+        commands
+            .entity(linked_edit_grid.0)
+            .insert(Visibility::Hidden);
+    }
+}
+
+fn on_editor_pointer_scroll(
+    scroll: On<PointerScroll>,
+    mut commands: Commands,
+    input: Res<ButtonInput<KeyCode>>,
+    q_viewport_nodes: Query<&ViewportNode>,
+    q_cameras: Query<(&Camera, &GlobalTransform)>,
+    q_linked_edit_grids: Query<&LinkedEditGrid>,
+) {
+    if input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+        && let Ok(linked_edit_grid) = q_linked_edit_grids.get(scroll.entity)
+        && let Ok(viewport_node) = q_viewport_nodes.get(scroll.entity)
+        && let Some(camera_entity) = viewport_node.camera
+        && let Ok((camera, camera_transform)) = q_cameras.get(camera_entity)
+        && let Ok(ray) = camera.viewport_to_world(camera_transform, scroll.pointer.position)
+    {
+        commands
+            .entity(linked_edit_grid.0)
+            .insert(Visibility::Inherited);
+
+        let forward = camera_transform.forward();
+        let plane_origin = camera_transform.translation() + forward * EDIT_DISTANCE;
+        let plane = InfinitePlane3d::new(forward);
+        if let Some(ray_distance) = ray.intersect_plane(plane_origin, plane) {
+            let point = ray.get_point(ray_distance);
+            info!("scroll {point:?}"); //XXX
+            //XXX trigger event with world coordinates
+        };
+    }
+}
+
+fn on_editor_zoom_finished(
+    zoom: On<ZoomFinished>,
+    mut commands: Commands,
+    q_linked_edit_grids: Query<&LinkedEditGrid>,
+) {
+    if let Ok(linked_edit_grid) = q_linked_edit_grids.get(zoom.entity) {
         commands
             .entity(linked_edit_grid.0)
             .insert(Visibility::Hidden);

@@ -25,6 +25,11 @@ impl Plugin for CameraControllerPlugin {
     }
 }
 
+#[derive(EntityEvent)]
+pub struct ZoomFinished {
+    pub entity: Entity,
+}
+
 #[derive(Component, Clone, Default, Debug, FromTemplate)]
 pub struct CameraController {
     #[template(built_in)]
@@ -139,10 +144,10 @@ fn on_viewport_pointer_scroll(
 
 fn end_viewport_zoom(
     mut commands: Commands,
-    mut cameras: Query<&mut PanOrbitCamera>,
+    mut cameras: Query<(Entity, &mut PanOrbitCamera)>,
     gizmo_axes: Single<Entity, With<GizmoAxes>>,
 ) {
-    for mut controller in &mut cameras {
+    for (controller_entity, mut controller) in &mut cameras {
         let zoom_settled = controller.current_motion.is_zooming_only()
             && controller
                 .current_motion
@@ -153,6 +158,9 @@ fn end_viewport_zoom(
         if zoom_settled {
             commands.entity(*gizmo_axes).insert(RenderLayers::none());
             controller.end_move();
+            commands.trigger(ZoomFinished {
+                entity: controller_entity,
+            });
         }
     }
 }
