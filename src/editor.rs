@@ -10,7 +10,7 @@ use bevy::{
         },
         display::label,
     },
-    picking::hover::Hovered,
+    picking::{hover::Hovered, pointer::PointerLocation},
     prelude::*,
     render::render_resource::TextureFormat,
     ui::widget::ViewportNode,
@@ -174,14 +174,16 @@ fn send_edit_draw_events<E: PointerEvent>(
     event: &E,
     input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
-    q_viewport_nodes: Query<(&ViewportNode, &Interpolation)>,
+    q_viewport_nodes: Query<(&ViewportNode, &Interpolation, &PointerLocation)>,
     q_cameras: Query<(&Camera, &GlobalTransform)>,
 ) {
     if input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
-        && let Ok((viewport_node, interpolation)) = q_viewport_nodes.get(event.event_target())
+        && let Ok((viewport_node, interpolation, pointer_location)) =
+            q_viewport_nodes.get(event.event_target())
         && let Some(camera_entity) = viewport_node.camera
+        && let Some(location) = pointer_location.location()
         && let Ok((camera, camera_transform)) = q_cameras.get(camera_entity)
-        && let Ok(ray) = camera.viewport_to_world(camera_transform, event.pointer().position)
+        && let Ok(ray) = camera.viewport_to_world(camera_transform, location.position)
     {
         let forward = camera_transform.forward();
         let plane_origin = camera_transform.translation() + forward * EDIT_DISTANCE;
@@ -200,7 +202,7 @@ fn on_editor_pointer_drag(
     drag: On<PointerDrag>,
     input: Res<ButtonInput<KeyCode>>,
     commands: Commands,
-    q_viewport_nodes: Query<(&ViewportNode, &Interpolation)>,
+    q_viewport_nodes: Query<(&ViewportNode, &Interpolation, &PointerLocation)>,
     q_cameras: Query<(&Camera, &GlobalTransform)>,
 ) {
     send_edit_draw_events(drag.event(), input, commands, q_viewport_nodes, q_cameras);
@@ -222,7 +224,7 @@ fn on_editor_pointer_scroll(
     scroll: On<PointerScroll>,
     input: Res<ButtonInput<KeyCode>>,
     commands: Commands,
-    q_viewport_nodes: Query<(&ViewportNode, &Interpolation)>,
+    q_viewport_nodes: Query<(&ViewportNode, &Interpolation, &PointerLocation)>,
     q_cameras: Query<(&Camera, &GlobalTransform)>,
 ) {
     send_edit_draw_events(scroll.event(), input, commands, q_viewport_nodes, q_cameras);
