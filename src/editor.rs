@@ -22,7 +22,7 @@ use crate::{
     camera_controller::{CameraController, CameraControllerPlugin},
 };
 
-const EDIT_DISTANCE: f32 = 5.0;
+const EDIT_DISTANCE: f32 = 8.0;
 
 pub struct EditorPlugin;
 
@@ -112,6 +112,7 @@ impl DrawingEditor {
                     --
                     @FeathersNumberInput
                     Node {
+                        width: px(100),
                         max_width: px(100),
                     }
                     NumberInputValue::F32(1.0)
