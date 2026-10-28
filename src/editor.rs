@@ -4,9 +4,8 @@ use bevy::{
     ecs::template::OptionTemplate,
     feathers::{
         controls::{
-            ColorInputValue, FeathersColorInput, FeathersNumberInput, HardLimit,
-            NumberInputPrecision, NumberInputStep, NumberInputValue, SoftLimit,
-            color_input_self_update,
+            ColorInputValue, FeathersColorInput, FeathersNumberInput, NumberInputPrecision,
+            NumberInputStep, NumberInputValue, SoftLimit, color_input_self_update,
         },
         display::label,
     },
@@ -115,15 +114,14 @@ impl DrawingEditor {
                         width: px(100),
                         max_width: px(100),
                     }
-                    NumberInputValue::F32(1.0)
+                    NumberInputValue::F32(3.0)
                     props.interpolation
-                    NumberInputPrecision(1)
-                    NumberInputStep(0.1)
-                    SoftLimit::f32(0.1..=3.0)
-                    HardLimit::f32(0.1..=3.0)
+                    NumberInputPrecision(0)
+                    NumberInputStep(1.0)
+                    SoftLimit::f32(1.0..=20.0)
                     on(|value_change: On<ValueChange<f32>>, mut commands: Commands| {
                         commands.entity(value_change.event_target())
-                            .insert(NumberInputValue::F32((value_change.value * 10.0).round() / 10.0));
+                            .insert(NumberInputValue::F32(value_change.value));
                     })
                 ]
                 --

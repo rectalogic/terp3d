@@ -3,6 +3,11 @@ name = "terp3d"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["webgl2"]
+webgl2 = ["bevy/webgl2"]
+webgpu = ["bevy/webgpu"]
+
 [dependencies]
 bevy = { version = "0.20.0", features = ["pan_orbit_camera", "bevy_feathers"] }
 rand = "0.10.3" # XXX remove

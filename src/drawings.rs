@@ -58,7 +58,7 @@ pub struct Drawing {
 }
 
 fn setup(mut meshes: ResMut<Assets<Mesh>>, mut drawing_mesh: ResMut<DrawingMesh>) {
-    drawing_mesh.0 = meshes.add(Sphere::new(0.5).mesh());
+    drawing_mesh.0 = meshes.add(Sphere::new(0.1).mesh());
 }
 
 fn deselect_drawings(commands: &mut Commands, drawings: &Children) {

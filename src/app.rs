@@ -1,10 +1,10 @@
 use bevy::{
     camera::visibility::RenderLayers,
-    color::palettes::css,
+    color::palettes::{self, css},
     feathers::{
         FeathersPlugins,
         dark_theme::create_dark_theme,
-        theme::{ThemeBackgroundColor, UiTheme},
+        theme::{SemanticToken, SurfaceLevel, ThemeBackgroundColor, ThemeProps, UiTheme},
         tokens,
     },
     prelude::*,
@@ -34,9 +34,33 @@ impl Plugin for AppPlugin {
             DrawingsPlugin,
             DrawingSelectorPlugin,
         ))
-        .insert_resource(UiTheme(create_dark_theme()))
+        .insert_resource(UiTheme(create_theme()))
         .add_systems(Startup, setup);
     }
+}
+
+fn create_theme() -> ThemeProps {
+    let mut props = create_dark_theme();
+    let listrow_selected = SemanticToken::new_static("feathers.listrow.bg.selected");
+    props
+        .token_assignments
+        .insert(tokens::LISTROW_BG_SELECTED, listrow_selected.clone());
+
+    let yellow: Color = palettes::basic::YELLOW.into();
+    props.semantic_base.insert(listrow_selected.clone(), yellow);
+
+    for level in [
+        SurfaceLevel::Higher,
+        SurfaceLevel::Highest,
+        SurfaceLevel::Floating,
+    ] {
+        props
+            .semantic_overrides
+            .entry(level)
+            .or_default()
+            .insert(listrow_selected.clone(), yellow);
+    }
+    props
 }
 
 const SOURCE_LAYER: RenderLayers = RenderLayers::layer(1);

@@ -1,4 +1,5 @@
 use bevy::{
+    color::palettes,
     material::{descriptor::RenderPipelineDescriptor, specialize::SpecializedMeshPipelineError},
     mesh::MeshVertexBufferLayoutRef,
     pbr::{ExtendedMaterial, MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline},
@@ -36,7 +37,7 @@ pub struct RimEffect {
 impl RimEffect {
     pub fn new(disabled: bool, color: LinearRgba, power: f32, threshold: f32) -> Self {
         Self {
-            disabled: disabled.into(),
+            disabled,
             color,
             power,
             threshold,
@@ -46,13 +47,13 @@ impl RimEffect {
     }
 
     pub fn disable(&mut self, disabled: bool) {
-        self.disabled = disabled.into();
+        self.disabled = disabled;
     }
 }
 
 impl Default for RimEffect {
     fn default() -> Self {
-        Self::new(false, LinearRgba::rgb(1.0, 1.0, 0.0), 3.0, 0.3)
+        Self::new(false, palettes::basic::YELLOW.into(), 3.0, 0.3)
     }
 }
 
