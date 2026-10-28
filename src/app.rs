@@ -11,7 +11,7 @@ use bevy::{
 };
 
 use crate::{
-    drawing_selector::{DrawingSelector, DrawingSelectorPlugin},
+    drawing_selector::DrawingSelector,
     drawings::{DrawingContainer, DrawingsPlugin},
     editor::{DrawingEditor, EditorPlugin},
 };
@@ -32,7 +32,6 @@ impl Plugin for AppPlugin {
             FeathersPlugins,
             EditorPlugin,
             DrawingsPlugin,
-            DrawingSelectorPlugin,
         ))
         .insert_resource(UiTheme(create_theme()))
         .add_systems(Startup, setup);

@@ -19,14 +19,6 @@ use crate::{
     drawings::{AddDrawing, DrawingConfig, SelectDrawing},
 };
 
-pub struct DrawingSelectorPlugin;
-
-impl Plugin for DrawingSelectorPlugin {
-    fn build(&self, _app: &mut App) {
-        //XXX remove if unused
-    }
-}
-
 #[derive(SceneComponent, Clone, Default, Debug)]
 pub struct DrawingSelector;
 
