@@ -25,7 +25,7 @@ impl Plugin for DrawingsPlugin {
 }
 
 #[derive(Resource, Default)]
-struct DrawingMesh(Handle<Mesh>);
+pub struct DrawingMesh(pub Handle<Mesh>);
 
 #[derive(Copy, Clone)]
 pub struct DrawingConfig {
