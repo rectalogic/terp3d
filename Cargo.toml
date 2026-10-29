@@ -10,9 +10,8 @@ webgpu = ["bevy/webgpu"]
 
 [dependencies]
 bevy = { version = "0.20.0", features = ["pan_orbit_camera", "bevy_feathers"] }
-rand = "0.10.3" # XXX remove
 
 [patch.crates-io]
 # Need af1e2a274509f2498201a2d4fea4c1574f8e4a89 and d11000b859df60002445885789a503fe95a626ac
 # bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "4e6bd14" }
-bevy = { git = "https://github.com/rectalogic/bevy.git", branch = "v0.20.0-backports" }
+bevy = { git = "https://github.com/rectalogic/bevy.git", branch = "v0.20.1-backports" }

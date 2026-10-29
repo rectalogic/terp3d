@@ -34,7 +34,7 @@ fn play(
     // then spawn children of Player with Mesh3d, material etc. and the initial Transform and an animation of the Transform
     // XXX also need PlayerDrawing parents to hold animated material shared by Mesh3d children
 
-    let player_drawings: Vec<Box<dyn Scene>> = iter::zip(
+    let player_drawings: Vec<Box<dyn SceneList>> = iter::zip(
         iter_drawings(Interpolation::Source, &q_drawings),
         iter_drawings(Interpolation::Target, &q_drawings),
     )
@@ -74,7 +74,7 @@ fn play(
     commands.spawn_scene(bsn! {
         Player
         Children [
-
+            {player_drawings}
         ]
     });
 }
@@ -92,7 +92,7 @@ fn drawing_meshes(
             bsn! {
                 Mesh3d(mesh)
                 MeshMaterial3d::<ExtendedMaterial<StandardMaterial, RimEffect>>(material)
-                Transform::from_translation(source)
+                Transform::from_translation(source)//XXX with_scale
             }
         })
         .collect::<Vec<_>>()
