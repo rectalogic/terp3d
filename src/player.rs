@@ -1,4 +1,10 @@
-use bevy::{pbr::ExtendedMaterial, prelude::*};
+use bevy::{
+    animation::{AnimatedBy, AnimationTargetId, animated_field},
+    asset::uuid::Uuid,
+    ecs::template::EntityTemplate,
+    pbr::ExtendedMaterial,
+    prelude::*,
+};
 use std::iter;
 
 use crate::{
@@ -18,14 +24,18 @@ impl Plugin for PlayerPlugin {
 #[derive(Component, Clone, Default)]
 struct Player;
 
-#[derive(Component, Clone, FromTemplate)]
+#[derive(Component, Reflect, Clone, FromTemplate)]
 struct PlayerDrawing {
-    material: Handle<ExtendedMaterial<StandardMaterial, RimEffect>>,
+    material: Handle<StandardMaterial>,
+    color: Oklaba,
 }
 
 fn play(
     mut commands: Commands,
-    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
+    mut animations: ResMut<Assets<AnimationClip>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+    extended_materials: Res<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
+    standard_materials: ResMut<Assets<StandardMaterial>>,
     q_drawings: Query<(&Drawing, &Interpolation, &Children)>,
     q_transforms: Query<&Transform>,
     drawing_mesh: Res<DrawingMesh>,
@@ -34,55 +44,88 @@ fn play(
     // then spawn children of Player with Mesh3d, material etc. and the initial Transform and an animation of the Transform
     // XXX also need PlayerDrawing parents to hold animated material shared by Mesh3d children
 
-    let player_drawings: Vec<Box<dyn SceneList>> = iter::zip(
+    let mut animation = AnimationClip::default();
+    let mut scene_commands = commands.spawn_scene(bsn! {
+        #Player
+        Player
+        @player_drawings(#Player, &mut animation, q_drawings, extended_materials, standard_materials,q_transforms, &drawing_mesh.0)
+    });
+    let (animation_graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
+    let mut player = AnimationPlayer::default();
+    player.play(animation_index).repeat();
+    scene_commands.insert((player, AnimationGraphHandle(graphs.add(animation_graph))));
+}
+
+fn player_drawings(
+    player: EntityTemplate,
+    animation: &mut AnimationClip,
+    q_drawings: Query<(&Drawing, &Interpolation, &Children)>,
+    extended_materials: Res<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    q_transforms: Query<&Transform>,
+    drawing_mesh: &Handle<Mesh>,
+) -> impl Scene {
+    let color_curve = EasingCurve::new(0.0, 1.0, EaseFunction::CubicInOut)
+        .reparametrize_linear(interval(0.0, 2.5).unwrap())
+        .expect("good curve")
+        .ping_pong()
+        .expect("good curve");
+
+    let drawings: Vec<Box<dyn SceneList>> = iter::zip(
         iter_drawings(Interpolation::Source, &q_drawings),
         iter_drawings(Interpolation::Target, &q_drawings),
     )
     .map(
         |((source_drawing, source_children), (target_drawing, target_children))| {
-            let target_material = materials
+            let target_material = extended_materials
                 .get(target_drawing.material.id())
                 .expect("material");
-            let source_material = materials
+            let source_material = extended_materials
                 .get(source_drawing.material.id())
                 .expect("material");
-            let source_material = source_material.clone();
             let source_color = source_material.base.base_color;
             let target_color = target_material.base.base_color;
-            let material = materials.add(source_material);
+            let source_material = source_material.base.clone();
+            let material = standard_materials.add(source_material);
+
+            let drawing_color_animation_target_id = AnimationTargetId(Uuid::new_v4());
+            animation.add_curve_to_target(
+                drawing_color_animation_target_id,
+                AnimatableCurve::new(animated_field!(PlayerDrawing::color), color_curve.clone()),
+            );
 
             let source_translations: Vec<_> = child_translations(source_children, &q_transforms);
             let target_translations: Vec<_> = child_translations(target_children, &q_transforms);
             let meshes = drawing_meshes(
                 zip_pad(&source_translations, &target_translations),
-                &drawing_mesh.0,
+                drawing_mesh,
                 &material,
             );
 
             bsn! {
-                    PlayerDrawing { material }
-                    Children [
-
-                    ]
-
+                PlayerDrawing { material, color: source_color }
+                drawing_color_animation_target_id
+                AnimatedBy(player)
+                Children [
+                    {meshes}
+                ]
             }
             .into()
         },
     )
     .collect();
 
-    commands.spawn_scene(bsn! {
-        Player
+    bsn! {
         Children [
-            {player_drawings}
+            {drawings}
         ]
-    });
+    }
 }
 
 fn drawing_meshes(
     translations: impl Iterator<Item = (Vec3, Vec3)>,
     mesh: &Handle<Mesh>,
-    material: &Handle<ExtendedMaterial<StandardMaterial, RimEffect>>,
+    material: &Handle<StandardMaterial>,
 ) -> impl SceneList {
     //XXX need animations, and to reference the player entity
     translations
@@ -91,7 +134,7 @@ fn drawing_meshes(
             let material = material.clone();
             bsn! {
                 Mesh3d(mesh)
-                MeshMaterial3d::<ExtendedMaterial<StandardMaterial, RimEffect>>(material)
+                MeshMaterial3d::<_>(material)
                 Transform::from_translation(source)//XXX with_scale
             }
         })
