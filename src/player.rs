@@ -88,23 +88,30 @@ fn player_drawings(
             let source_material = source_material.base.clone();
             let material = standard_materials.add(source_material);
 
-            let drawing_color_animation_target_id = AnimationTargetId(Uuid::new_v4());
+            let drawing_animation_target_id = AnimationTargetId(Uuid::new_v4());
+            let color_curve = color_curve
+                .clone()
+                .map(move |t| Oklaba::from(source_color.mix(&target_color, t)));
             animation.add_curve_to_target(
-                drawing_color_animation_target_id,
-                AnimatableCurve::new(animated_field!(PlayerDrawing::color), color_curve.clone()),
+                drawing_animation_target_id,
+                AnimatableCurve::new(animated_field!(PlayerDrawing::color), color_curve),
             );
 
             let source_translations: Vec<_> = child_translations(source_children, &q_transforms);
             let target_translations: Vec<_> = child_translations(target_children, &q_transforms);
+            let scales = (source_drawing.scale, target_drawing.scale);
             let meshes = drawing_meshes(
+                player,
                 zip_pad(&source_translations, &target_translations),
+                scales,
                 drawing_mesh,
+                animation,
                 &material,
             );
 
             bsn! {
                 PlayerDrawing { material, color: source_color }
-                drawing_color_animation_target_id
+                drawing_animation_target_id
                 AnimatedBy(player)
                 Children [
                     {meshes}
@@ -123,19 +130,45 @@ fn player_drawings(
 }
 
 fn drawing_meshes(
+    player: EntityTemplate,
     translations: impl Iterator<Item = (Vec3, Vec3)>,
+    scales: (f32, f32),
     mesh: &Handle<Mesh>,
+    animation: &mut AnimationClip,
     material: &Handle<StandardMaterial>,
 ) -> impl SceneList {
-    //XXX need animations, and to reference the player entity
+    let curve = EasingCurve::new(0.0, 1.0, EaseFunction::CubicInOut)
+        .reparametrize_linear(interval(0.0, 2.5).unwrap())
+        .expect("good curve")
+        .ping_pong()
+        .expect("good curve");
+    let source_scale = Vec3::splat(scales.0);
+    let target_scale = Vec3::splat(scales.1);
+    let scale_curve = curve
+        .clone()
+        .map(move |t| source_scale.lerp(target_scale, t));
     translations
-        .map(|(source, _)| {
+        .map(|(source_translation, target_translation)| {
+            let animation_target_id = AnimationTargetId(Uuid::new_v4());
+            let translation_curve = curve
+                .clone()
+                .map(move |t| source_translation.lerp(target_translation, t));
+            animation.add_curve_to_target(
+                animation_target_id,
+                AnimatableCurve::new(animated_field!(Transform::translation), translation_curve),
+            );
+            animation.add_curve_to_target(
+                animation_target_id,
+                AnimatableCurve::new(animated_field!(Transform::scale), scale_curve.clone()),
+            );
             let mesh = mesh.clone();
             let material = material.clone();
             bsn! {
+                AnimatedBy(player)
+                animation_target_id
                 Mesh3d(mesh)
                 MeshMaterial3d::<_>(material)
-                Transform::from_translation(source)//XXX with_scale
+                Transform::from_translation(source_translation).with_scale(source_scale)
             }
         })
         .collect::<Vec<_>>()
