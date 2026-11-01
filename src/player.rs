@@ -17,7 +17,10 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        //XXX observe state change event and play()
+        app.add_systems(
+            PostUpdate,
+            sync_material_color.after(bevy::animation::animate_targets),
+        ); //XXX conditional to state
     }
 }
 
@@ -30,6 +33,18 @@ struct PlayerDrawing {
     color: Oklaba,
 }
 
+fn sync_material_color(
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    q_drawings: Query<&PlayerDrawing, Changed<PlayerDrawing>>,
+) {
+    for drawing in &q_drawings {
+        if let Some(mut material) = materials.get_mut(&drawing.material) {
+            material.base_color = Color::from(drawing.color);
+        }
+    }
+}
+
+#[expect(clippy::too_many_arguments)]
 fn play(
     mut commands: Commands,
     mut animations: ResMut<Assets<AnimationClip>>,
@@ -40,15 +55,12 @@ fn play(
     q_transforms: Query<&Transform>,
     drawing_mesh: Res<DrawingMesh>,
 ) {
-    //XXX spawn a single parent Player, for each pair of Drawing, zip_pad the children Transforms
-    // then spawn children of Player with Mesh3d, material etc. and the initial Transform and an animation of the Transform
-    // XXX also need PlayerDrawing parents to hold animated material shared by Mesh3d children
-
     let mut animation = AnimationClip::default();
     let mut scene_commands = commands.spawn_scene(bsn! {
         #Player
         Player
-        @player_drawings(#Player, &mut animation, q_drawings, extended_materials, standard_materials,q_transforms, &drawing_mesh.0)
+        @player_drawings(#Player, &mut animation, q_drawings, extended_materials, standard_materials, q_transforms, &drawing_mesh.0)
+        // XXX DespawnOnExit state
     });
     let (animation_graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
     let mut player = AnimationPlayer::default();
@@ -65,7 +77,7 @@ fn player_drawings(
     q_transforms: Query<&Transform>,
     drawing_mesh: &Handle<Mesh>,
 ) -> impl Scene {
-    let color_curve = EasingCurve::new(0.0, 1.0, EaseFunction::CubicInOut)
+    let curve = EasingCurve::new(0.0, 1.0, EaseFunction::CubicInOut)
         .reparametrize_linear(interval(0.0, 2.5).unwrap())
         .expect("good curve")
         .ping_pong()
@@ -89,7 +101,7 @@ fn player_drawings(
             let material = standard_materials.add(source_material);
 
             let drawing_animation_target_id = AnimationTargetId(Uuid::new_v4());
-            let color_curve = color_curve
+            let color_curve = curve
                 .clone()
                 .map(move |t| Oklaba::from(source_color.mix(&target_color, t)));
             animation.add_curve_to_target(
@@ -106,6 +118,7 @@ fn player_drawings(
                 scales,
                 drawing_mesh,
                 animation,
+                curve.clone(),
                 &material,
             );
 
@@ -135,13 +148,9 @@ fn drawing_meshes(
     scales: (f32, f32),
     mesh: &Handle<Mesh>,
     animation: &mut AnimationClip,
+    curve: impl AnimationCompatibleCurve<f32>,
     material: &Handle<StandardMaterial>,
 ) -> impl SceneList {
-    let curve = EasingCurve::new(0.0, 1.0, EaseFunction::CubicInOut)
-        .reparametrize_linear(interval(0.0, 2.5).unwrap())
-        .expect("good curve")
-        .ping_pong()
-        .expect("good curve");
     let source_scale = Vec3::splat(scales.0);
     let target_scale = Vec3::splat(scales.1);
     let scale_curve = curve
