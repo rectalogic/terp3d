@@ -96,7 +96,7 @@ fn hide_editor(mut commands: Commands, q_editor: Single<Entity, With<EditorUI>>)
 }
 
 fn setup(mut commands: Commands) {
-    let all_layers = SOURCE_LAYER.union(&TARGET_LAYER);
+    let all_layers = RenderLayers::default() | SOURCE_LAYER | TARGET_LAYER;
     commands.spawn_scene_list(bsn_list! {
         Camera3d
         IsDefaultUiCamera
