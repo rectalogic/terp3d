@@ -1,14 +1,15 @@
 use bevy::{
     animation::{AnimatedBy, AnimationTargetId, animated_field},
     asset::uuid::Uuid,
-    ecs::template::EntityTemplate,
+    ecs::template::{EntityTemplate, OptionTemplate},
     pbr::ExtendedMaterial,
     prelude::*,
 };
 use std::iter;
 
 use crate::{
-    app::Interpolation,
+    app::{AppState, Interpolation},
+    camera_controller::CameraController,
     drawings::{Drawing, DrawingMesh},
     rim_effect::RimEffect,
 };
@@ -17,17 +18,22 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PostUpdate,
-            sync_material_color.after(bevy::animation::animate_targets),
-        ); //XXX conditional to state
+        app.add_systems(OnEnter(AppState::Play), setup_player)
+            .add_systems(
+                PostUpdate,
+                sync_material_color
+                    .after(bevy::animation::animate_targets)
+                    .run_if(in_state(AppState::Play)),
+            );
     }
 }
 
 #[derive(Component, Clone, Default)]
+#[require(Transform, Visibility)]
 struct Player;
 
 #[derive(Component, Reflect, Clone, FromTemplate)]
+#[require(Transform, Visibility)]
 struct PlayerDrawing {
     material: Handle<StandardMaterial>,
     color: Oklaba,
@@ -44,23 +50,40 @@ fn sync_material_color(
     }
 }
 
-#[expect(clippy::too_many_arguments)]
-fn play(
+#[expect(clippy::too_many_arguments, clippy::type_complexity)]
+fn setup_player(
     mut commands: Commands,
     mut animations: ResMut<Assets<AnimationClip>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
     extended_materials: Res<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
     standard_materials: ResMut<Assets<StandardMaterial>>,
     q_drawings: Query<(&Drawing, &Interpolation, &Children)>,
-    q_transforms: Query<&Transform>,
+    q_transforms: Query<&Transform, Without<IsDefaultUiCamera>>,
+    q_main_camera_transform: Single<(Entity, &mut Transform), With<IsDefaultUiCamera>>,
+    q_editor_camera_transforms: Query<
+        (&Transform, &Interpolation),
+        (With<Camera>, Without<IsDefaultUiCamera>),
+    >,
     drawing_mesh: Res<DrawingMesh>,
 ) {
+    let (camera_entity, mut camera_transform) = q_main_camera_transform.into_inner();
+    if let Some(transform) =
+        q_editor_camera_transforms
+            .iter()
+            .find_map(|(transform, interpolation)| {
+                (*interpolation == Interpolation::Source).then_some(transform)
+            })
+    {
+        *camera_transform = *transform;
+    };
+
     let mut animation = AnimationClip::default();
     let mut scene_commands = commands.spawn_scene(bsn! {
         #Player
         Player
+        CameraController { camera: OptionTemplate::Some(camera_entity) }
+        DespawnOnExit::<AppState>(AppState::Play)
         @player_drawings(#Player, &mut animation, q_drawings, extended_materials, standard_materials, q_transforms, &drawing_mesh.0)
-        // XXX DespawnOnExit state
     });
     let (animation_graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
     let mut player = AnimationPlayer::default();
@@ -74,7 +97,7 @@ fn player_drawings(
     q_drawings: Query<(&Drawing, &Interpolation, &Children)>,
     extended_materials: Res<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    q_transforms: Query<&Transform>,
+    q_transforms: Query<&Transform, Without<IsDefaultUiCamera>>,
     drawing_mesh: &Handle<Mesh>,
 ) -> impl Scene {
     let curve = EasingCurve::new(0.0, 1.0, EaseFunction::CubicInOut)
@@ -194,7 +217,10 @@ fn iter_drawings<'q>(
         })
 }
 
-fn child_translations(children: &Children, q_transforms: &Query<&Transform>) -> Vec<Vec3> {
+fn child_translations(
+    children: &Children,
+    q_transforms: &Query<&Transform, Without<IsDefaultUiCamera>>,
+) -> Vec<Vec3> {
     children
         .iter()
         .filter_map(|entity| q_transforms.get(entity).map(|t| t.translation).ok())

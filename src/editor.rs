@@ -17,7 +17,7 @@ use bevy::{
 };
 
 use crate::{
-    app::Interpolation,
+    app::{AppState, Interpolation},
     camera_controller::{CameraController, CameraControllerPlugin},
 };
 
@@ -27,8 +27,10 @@ pub struct EditorPlugin;
 
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(CameraControllerPlugin)
-            .add_systems(Update, handle_edit_grid_visibility);
+        app.add_plugins(CameraControllerPlugin).add_systems(
+            Update,
+            handle_edit_grid_visibility.run_if(in_state(AppState::Edit)),
+        );
     }
 
     fn finish(&self, app: &mut App) {
@@ -48,6 +50,9 @@ impl Plugin for EditorPlugin {
         }
     }
 }
+
+#[derive(Component, Clone, Default)]
+pub struct EditorUI;
 
 #[derive(Event)]
 pub struct EditDrawing {
@@ -140,6 +145,7 @@ impl DrawingEditor {
                     #Camera
                     Camera3d
                     Camera { order: -1 }
+                    props.interpolation
                     Transform::from_xyz(0., 0., 10.0).looking_at(Vec3::ZERO, Vec3::Y)
                     props.render_layers
                     RenderTarget::Image(ImageRenderTargetTemplate {

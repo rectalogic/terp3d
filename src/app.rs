@@ -3,17 +3,21 @@ use bevy::{
     color::palettes::{self, css},
     feathers::{
         FeathersPlugins,
+        controls::FeathersButton,
         dark_theme::create_dark_theme,
+        display::caption,
         theme::{SemanticToken, SurfaceLevel, ThemeBackgroundColor, ThemeProps, UiTheme},
         tokens,
     },
     prelude::*,
+    ui_widgets::Activate,
 };
 
 use crate::{
     drawing_selector::DrawingSelector,
     drawings::{DrawingContainer, DrawingsPlugin},
-    editor::{DrawingEditor, EditorPlugin},
+    editor::{DrawingEditor, EditorPlugin, EditorUI},
+    player::PlayerPlugin,
 };
 
 pub struct AppPlugin;
@@ -31,11 +35,22 @@ impl Plugin for AppPlugin {
             }),
             FeathersPlugins,
             EditorPlugin,
+            PlayerPlugin,
             DrawingsPlugin,
         ))
+        .init_state::<AppState>()
         .insert_resource(UiTheme(create_theme()))
-        .add_systems(Startup, setup);
+        .add_systems(Startup, setup)
+        .add_systems(OnEnter(AppState::Edit), show_editor)
+        .add_systems(OnExit(AppState::Edit), hide_editor);
     }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Default, States)]
+pub enum AppState {
+    #[default]
+    Edit,
+    Play,
 }
 
 fn create_theme() -> ThemeProps {
@@ -72,6 +87,14 @@ pub enum Interpolation {
     Target,
 }
 
+fn show_editor(mut commands: Commands, q_editor: Single<Entity, With<EditorUI>>) {
+    commands.entity(*q_editor).insert(Visibility::Inherited);
+}
+
+fn hide_editor(mut commands: Commands, q_editor: Single<Entity, With<EditorUI>>) {
+    commands.entity(*q_editor).insert(Visibility::Hidden);
+}
+
 fn setup(mut commands: Commands) {
     let all_layers = SOURCE_LAYER.union(&TARGET_LAYER);
     commands.spawn_scene_list(bsn_list! {
@@ -88,6 +111,7 @@ fn setup(mut commands: Commands) {
         TARGET_LAYER
         Children []
         --
+        EditorUI
         Node {
             width: percent(100),
             height: percent(100),
@@ -111,6 +135,13 @@ fn setup(mut commands: Commands) {
             }
             Children [
                 @DrawingSelector
+                --
+                @FeathersButton {
+                    @caption: bsn! { @caption("Play") },
+                }
+                on(|_activate: On<Activate>, mut next_state: ResMut<NextState<AppState>>| {
+                    next_state.set(AppState::Play);
+                })
             ]
             --
             @DrawingEditor { @interpolation: Interpolation::Target, @render_layers: TARGET_LAYER }
