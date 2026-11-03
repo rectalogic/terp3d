@@ -4,5 +4,6 @@ mod drawing_selector;
 mod drawings;
 mod editor;
 mod player;
+mod project;
 mod rim_effect;
 pub use app::AppPlugin;

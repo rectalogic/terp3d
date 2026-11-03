@@ -30,13 +30,13 @@ impl Plugin for PlayerPlugin {
 
 #[derive(Component, Clone, Default)]
 #[require(Transform, Visibility)]
-struct Player;
+pub struct Player;
 
 #[derive(Component, Reflect, Clone, FromTemplate)]
 #[require(Transform, Visibility)]
-struct PlayerDrawing {
-    material: Handle<StandardMaterial>,
-    color: Oklaba,
+pub struct PlayerDrawing {
+    pub material: Handle<StandardMaterial>,
+    pub color: Oklaba,
 }
 
 fn sync_material_color(
