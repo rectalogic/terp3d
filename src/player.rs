@@ -80,6 +80,10 @@ fn setup_player(
     let mut animation = AnimationClip::default();
     let mut scene_commands = commands.spawn_scene(bsn! {
         #Player
+        Node {
+            width: percent(100),
+            height: percent(100),
+        }
         Player
         CameraController { camera: OptionTemplate::Some(camera_entity) }
         DespawnOnExit::<AppState>(AppState::Play)
