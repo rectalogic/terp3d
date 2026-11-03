@@ -1,11 +1,15 @@
 use bevy::{
     animation::{AnimatedBy, AnimationTargetId, animated_field},
     asset::uuid::Uuid,
-    ecs::template::EntityTemplate,
+    ecs::template::OptionTemplate,
     prelude::*,
 };
 
-use crate::player::PlayerDrawing;
+use crate::{
+    app::AppState,
+    camera_controller::CameraController,
+    player::{Player, PlayerDrawing},
+};
 
 pub struct TerpProject {
     camera: Transform,
@@ -19,16 +23,18 @@ struct TerpDrawing {
 }
 
 impl TerpProject {
+    #[expect(clippy::too_many_arguments)]
     pub fn play(
         &self,
         mut commands: Commands,
         camera_entity: Entity,
-        q_transforms: Query<&mut Transform>,
+        mut q_transforms: Query<&mut Transform>,
         mut animations: ResMut<Assets<AnimationClip>>,
         mut graphs: ResMut<Assets<AnimationGraph>>,
+        materials: ResMut<Assets<StandardMaterial>>,
         drawing_mesh: &Handle<Mesh>,
     ) {
-        if let Ok(transform) = q_transforms.get_mut(camera_entity) {
+        if let Ok(mut transform) = q_transforms.get_mut(camera_entity) {
             *transform = self.camera;
         }
 
@@ -38,10 +44,13 @@ impl TerpProject {
             Player
             CameraController { camera: OptionTemplate::Some(camera_entity) }
             DespawnOnExit::<AppState>(AppState::Play)
-            Children [
-                {self.player_drawings(#Player, &mut animation, standard_materials, drawing_mesh)}
-            ]
         });
+        scene_commands.queue_spawn_related_scenes::<Children>(self.player_drawings(
+            scene_commands.id(),
+            &mut animation,
+            materials,
+            drawing_mesh,
+        ));
         let (animation_graph, animation_index) =
             AnimationGraph::from_clip(animations.add(animation));
         let mut animation_player = AnimationPlayer::default();
@@ -54,7 +63,7 @@ impl TerpProject {
 
     fn player_drawings(
         &self,
-        player: EntityTemplate,
+        player: Entity,
         animation: &mut AnimationClip,
         mut materials: ResMut<Assets<StandardMaterial>>,
         drawing_mesh: &Handle<Mesh>,
@@ -77,7 +86,7 @@ impl TerpProject {
                 let color_animation_target_id = AnimationTargetId(Uuid::new_v4());
                 let color_curve = curve
                     .clone()
-                    .map(move |t| Oklaba::from(source_color.mix(&target_color, t)));
+                    .map(move |t| source_color.mix(&target_color, t));
                 animation.add_curve_to_target(
                     color_animation_target_id,
                     AnimatableCurve::new(animated_field!(PlayerDrawing::color), color_curve),
