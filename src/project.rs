@@ -1,14 +1,19 @@
+use std::iter;
+
 use bevy::{
     animation::{AnimatedBy, AnimationTargetId, animated_field},
     asset::uuid::Uuid,
     ecs::template::OptionTemplate,
+    pbr::ExtendedMaterial,
     prelude::*,
 };
 
 use crate::{
-    app::AppState,
+    app::{AppState, Interpolation},
     camera_controller::CameraController,
+    drawings::Drawing,
     player::{Player, PlayerDrawing},
+    rim_effect::RimEffect,
 };
 
 pub struct TerpProject {
@@ -23,6 +28,54 @@ struct TerpDrawing {
 }
 
 impl TerpProject {
+    pub fn build(
+        camera_entity: Entity,
+        q_drawings: Query<(&Drawing, &Interpolation, &Children)>,
+        q_transforms: Query<&Transform>,
+        extended_materials: Res<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
+    ) -> Self {
+        let drawings = iter::zip(
+            iter_drawings(Interpolation::Source, &q_drawings),
+            iter_drawings(Interpolation::Target, &q_drawings),
+        )
+        .map(
+            |((source_drawing, source_children), (target_drawing, target_children))| {
+                let scales = (source_drawing.scale, target_drawing.scale);
+
+                let target_material = extended_materials
+                    .get(target_drawing.material.id())
+                    .expect("material");
+                let source_material = extended_materials
+                    .get(source_drawing.material.id())
+                    .expect("material");
+                let colors: (Oklaba, Oklaba) = (
+                    source_material.base.base_color.into(),
+                    target_material.base.base_color.into(),
+                );
+
+                let source_translations: Vec<_> =
+                    child_translations(source_children, &q_transforms);
+                let target_translations: Vec<_> =
+                    child_translations(target_children, &q_transforms);
+                let translations: Vec<_> =
+                    zip_pad(&source_translations, &target_translations).collect();
+
+                TerpDrawing {
+                    colors,
+                    scales,
+                    translations,
+                }
+            },
+        )
+        .collect();
+
+        let transform = q_transforms.get(camera_entity).unwrap();
+        TerpProject {
+            camera: *transform,
+            drawings,
+        }
+    }
+
     #[expect(clippy::too_many_arguments)]
     pub fn play(
         &self,
@@ -142,4 +195,39 @@ impl TerpProject {
             })
             .collect::<Vec<_>>()
     }
+}
+
+fn iter_drawings<'q>(
+    interpolation: Interpolation,
+    q_drawings: &'q Query<(&Drawing, &Interpolation, &Children)>,
+) -> impl Iterator<Item = (&'q Drawing, &'q Children)> + 'q {
+    q_drawings
+        .iter()
+        .filter_map(move |(drawing, interp, children)| {
+            (*interp == interpolation).then_some((drawing, children))
+        })
+}
+
+fn child_translations(children: &Children, q_transforms: &Query<&Transform>) -> Vec<Vec3> {
+    children
+        .iter()
+        .filter_map(|entity| q_transforms.get(entity).map(|t| t.translation).ok())
+        .collect()
+}
+
+fn zip_pad(a: &[Vec3], b: &[Vec3]) -> impl Iterator<Item = (Vec3, Vec3)> {
+    let (m, n) = (a.len(), b.len());
+    (0..m.max(n)).map(move |i| {
+        if m == 0 {
+            (b[i], b[i])
+        } else if n == 0 {
+            (a[i], a[i])
+        } else if m <= n {
+            let j = (2 * i + 1) * m / (2 * n);
+            (a[j], b[i])
+        } else {
+            let j = (2 * i + 1) * n / (2 * m);
+            (a[i], b[j])
+        }
+    })
 }
