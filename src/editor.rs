@@ -3,17 +3,13 @@ use bevy::{
     camera::{ImageRenderTargetTemplate, RenderTarget, visibility::RenderLayers},
     ecs::template::OptionTemplate,
     feathers::{
-        controls::{
-            ColorInputValue, FeathersColorInput, FeathersNumberInput, NumberInputPrecision,
-            NumberInputStep, NumberInputValue, SoftLimit, color_input_self_update,
-        },
-        display::label,
+        containers::{pane, pane_header},
+        display::label_dim,
     },
     picking::{hover::Hovered, pointer::PointerLocation},
     prelude::*,
     render::render_resource::TextureFormat,
     ui::widget::ViewportNode,
-    ui_widgets::ValueChange,
 };
 
 use crate::{
@@ -92,42 +88,15 @@ impl DrawingEditor {
     fn scene(props: DrawingEditorProps) -> impl Scene {
         let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
         let render_layers = props.render_layers.clone();
+        let title = match props.interpolation {
+            Interpolation::Source => "Source",
+            Interpolation::Target => "Target",
+        };
 
         bsn! {
-            Node {
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::FlexStart,
-            }
-            Children [
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::FlexStart,
-                    align_items: AlignItems::Baseline,
-                }
-                Children [
-                    @label("Color")
-                    --
-                    @FeathersColorInput
-                    ColorInputValue
-                    props.interpolation
-                    on(color_input_self_update)
-                    --
-                    @label("Size")
-                    --
-                    @FeathersNumberInput
-                    Node {
-                        width: px(100),
-                        max_width: px(100),
-                    }
-                    NumberInputValue::F32(3.0)
-                    props.interpolation
-                    NumberInputPrecision(0)
-                    NumberInputStep(1.0)
-                    SoftLimit::f32(1.0..=20.0)
-                    on(|value_change: On<ValueChange<f32>>, mut commands: Commands| {
-                        commands.entity(value_change.event_target())
-                            .insert(NumberInputValue::F32(value_change.value));
-                    })
+            @pane() Children [
+                @pane_header() Children [
+                    @label_dim(title)
                 ]
                 --
                 Node {

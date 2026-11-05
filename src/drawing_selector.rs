@@ -1,17 +1,20 @@
 use bevy::{
     feathers::{
-        containers::{subpane, subpane_body, subpane_header},
+        containers::{pane, pane_body, pane_header},
         controls::{
-            ColorInputValue, ColorSwatchValue, FeathersButton, FeathersColorSwatch,
-            FeathersListRow, FeathersListView, NumberInputValue, OptionIndex,
+            ButtonVariant, ColorInputValue, ColorSwatchValue, FeathersButton, FeathersColorInput,
+            FeathersColorSwatch, FeathersDialog, FeathersDialogBody, FeathersDialogClose,
+            FeathersDialogFooter, FeathersDialogHeader, FeathersListRow, FeathersListView,
+            FeathersNumberInput, NumberInputPrecision, NumberInputStep, NumberInputValue,
+            OptionIndex, SoftLimit, color_input_self_update,
         },
-        display::caption,
+        display::{caption, label},
         rounded_corners::RoundedCorners,
     },
     platform::collections::HashMap,
     prelude::*,
     ui::Selected,
-    ui_widgets::{Activate, ValueChange, listbox_update_selection},
+    ui_widgets::{Activate, RequestClose, ValueChange, listbox_update_selection},
 };
 
 use crate::{
@@ -25,23 +28,21 @@ pub struct DrawingSelector;
 #[derive(Component, Clone, FromTemplate)]
 struct TargetListView(Entity);
 
+#[derive(Component, Clone, Default)]
+pub struct DrawingColor(pub Color);
+
+#[derive(Component, Clone, Default)]
+pub struct DrawingScale(pub f32);
+
 impl DrawingSelector {
     fn scene() -> impl Scene {
         bsn! {
-            @subpane() Children [
-                @subpane_header() Children [
+            @pane() Children [
+                @pane_header() Children [
                     @caption("Drawings")
                 ]
                 --
-                @subpane_header() Children [
-                    @FeathersButton {
-                        @caption: bsn! { @caption("New") }
-                    }
-                    TargetListView(#ListView)
-                    on(on_add_drawing)
-                ]
-                --
-                @subpane_body() Children [
+                @pane_body() Children [
                     #ListView
                     Node {
                         height: em(6),
@@ -57,9 +58,146 @@ impl DrawingSelector {
                     }
                     on(listbox_update_selection)
                     on(listbox_select)
+                    --
+                    Interpolation::Source
+                    DrawingColor
+                    DrawingScale(3.0)
+                    --
+                    Interpolation::Target
+                    DrawingColor
+                    DrawingScale(3.0)
+                    --
+                    @FeathersButton {
+                        @caption: bsn! { @caption("New") }
+                    }
+                    on(spawn_new_drawing_dialog)
                 ]
             ]
         }
+    }
+}
+
+fn spawn_new_drawing_dialog(
+    activate: On<Activate>,
+    mut commands: Commands,
+    q_drawing_colors: Query<(&Interpolation, &DrawingColor)>,
+    q_drawing_scales: Query<(&Interpolation, &DrawingScale)>,
+) {
+    let drawing_configs: HashMap<Interpolation, DrawingConfig> = q_drawing_colors
+        .iter()
+        .map(|(interpolation, drawing_color)| {
+            let scale = q_drawing_scales
+                .iter()
+                .find_map(|(interp, scale)| (interp == interpolation).then_some(scale.0))
+                .unwrap();
+            (
+                *interpolation,
+                DrawingConfig {
+                    color: drawing_color.0,
+                    scale,
+                },
+            )
+        })
+        .collect();
+
+    commands
+        .entity(activate.event_target())
+        .queue_spawn_related_scenes::<Children>(bsn_list! {
+            @FeathersDialog {
+                @width: px(320),
+                @contents: bsn_list! {
+                    @FeathersDialogHeader Children [
+                        @caption("New Drawing")
+                        --
+                        @FeathersDialogClose
+                    ]
+                    --
+                    @FeathersDialogBody Children [
+                        @drawing_configurator(Interpolation::Source, &drawing_configs)
+                        --
+                        @drawing_configurator(Interpolation::Target, &drawing_configs)
+                    ]
+                    --
+                    @FeathersDialogFooter Children [
+                        @FeathersButton {
+                            @caption: bsn! { @caption("Cancel") },
+                        }
+                        AccessibleLabel("Cancel")
+                        on(|activate: On<Activate>, mut commands: Commands| {
+                            commands.trigger(RequestClose { source: activate.event_target() });
+                        })
+                        --
+                        @FeathersButton {
+                            @caption: bsn! { @caption("Create") },
+                            @variant: ButtonVariant::Primary,
+                        }
+                        AccessibleLabel("Create")
+                        TargetListView(#ListView)
+                        on(on_add_drawing)
+                    ]
+                }
+            }
+            on(|close: On<RequestClose>, mut commands: Commands| {
+                commands.entity(close.event_target()).despawn();
+            })
+        });
+}
+
+fn drawing_configurator(
+    interpolation: Interpolation,
+    drawing_configs: &HashMap<Interpolation, DrawingConfig>,
+) -> impl Scene {
+    let (title, color, scale) = match interpolation {
+        Interpolation::Source => (
+            "Source",
+            drawing_configs[&Interpolation::Source].color,
+            drawing_configs[&Interpolation::Source].scale,
+        ),
+        Interpolation::Target => (
+            "Target",
+            drawing_configs[&Interpolation::Target].color,
+            drawing_configs[&Interpolation::Target].scale,
+        ),
+    };
+    bsn! {
+        @pane() Children [
+            @pane_header() Children [
+                @caption(title)
+            ]
+            --
+            @pane_body() Children [
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::FlexStart,
+                    align_items: AlignItems::Baseline,
+                }
+                Children [
+                    @label("Color")
+                    --
+                    @FeathersColorInput
+                    ColorInputValue(color)
+                    interpolation
+                    on(color_input_self_update)
+                    --
+                    @label("Size")
+                    --
+                    @FeathersNumberInput
+                    Node {
+                        width: px(100),
+                        max_width: px(100),
+                    }
+                    NumberInputValue::F32(scale)
+                    interpolation
+                    NumberInputPrecision(0)
+                    NumberInputStep(1.0)
+                    SoftLimit::f32(1.0..=20.0)
+                    on(|value_change: On<ValueChange<f32>>, mut commands: Commands| {
+                        commands.entity(value_change.event_target())
+                            .insert(NumberInputValue::F32(value_change.value));
+                    })
+                ]
+            ]
+        ]
     }
 }
 
@@ -110,6 +248,8 @@ fn on_add_drawing(
     q_childof: Query<&ChildOf>,
     q_color_inputs: Query<(&Interpolation, &ColorInputValue)>,
     q_number_inputs: Query<(&Interpolation, &NumberInputValue)>,
+    mut q_drawing_colors: Query<(&Interpolation, &mut DrawingColor)>,
+    mut q_drawing_scales: Query<(&Interpolation, &mut DrawingScale)>,
 ) {
     let Ok(target_listview) = q_listviews.get(activate.entity) else {
         return;
@@ -153,6 +293,22 @@ fn on_add_drawing(
         commands
             .entity(listrow_parent.0)
             .insert_child(row_index, new_row);
+
+        q_drawing_colors
+            .iter_mut()
+            .for_each(|(interpolation, mut drawing_color)| {
+                drawing_color.0 = drawing_configs[interpolation].color;
+            });
+        q_drawing_scales
+            .iter_mut()
+            .for_each(|(interpolation, mut drawing_scale)| {
+                drawing_scale.0 = drawing_configs[interpolation].scale;
+            });
+
         commands.trigger(AddDrawing { drawing_configs });
+
+        commands.trigger(RequestClose {
+            source: activate.event_target(),
+        });
     }
 }

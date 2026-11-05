@@ -1,6 +1,6 @@
 use bevy::{
     camera::visibility::RenderLayers,
-    color::palettes::{self, css},
+    color::palettes,
     feathers::{
         FeathersPlugins,
         controls::FeathersButton,
@@ -121,11 +121,10 @@ fn setup(mut commands: Commands) {
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children [
             @DrawingEditor { @interpolation: Interpolation::Source, @render_layers: SOURCE_LAYER }
-            BorderColor::all(css::YELLOW)
             Node {
                 flex_grow: 1.0,
                 height: percent(100),
-                border: UiRect::all(px(8)),
+                border: UiRect::all(px(2)),
             }
             --
             Node {
@@ -145,11 +144,10 @@ fn setup(mut commands: Commands) {
             ]
             --
             @DrawingEditor { @interpolation: Interpolation::Target, @render_layers: TARGET_LAYER }
-            BorderColor::all(css::BLUE)
             Node {
                 flex_grow: 1.0,
                 height: percent(100),
-                border: UiRect::all(px(8)),
+                border: UiRect::all(px(2)),
             }
         ]
         --
