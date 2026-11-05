@@ -25,8 +25,8 @@ use crate::{
 #[derive(SceneComponent, Clone, Default, Debug)]
 pub struct DrawingSelector;
 
-#[derive(Component, Clone, FromTemplate)]
-struct TargetListView(Entity);
+#[derive(Component, Clone, Default)]
+struct TargetListView;
 
 #[derive(Component, Clone, Default)]
 pub struct DrawingColor(pub Color);
@@ -43,11 +43,11 @@ impl DrawingSelector {
                 ]
                 --
                 @pane_body() Children [
-                    #ListView
                     Node {
                         height: em(6),
                         max_height: em(6),
                     }
+                    TargetListView
                     @FeathersListView {
                         @rows: { bsn! {
                             @FeathersListRow
@@ -132,7 +132,6 @@ fn spawn_new_drawing_dialog(
                             @variant: ButtonVariant::Primary,
                         }
                         AccessibleLabel("Create")
-                        TargetListView(#ListView)
                         on(on_add_drawing)
                     ]
                 }
@@ -242,7 +241,7 @@ fn new_row(index: usize, drawing_configs: &HashMap<Interpolation, DrawingConfig>
 fn on_add_drawing(
     activate: On<Activate>,
     mut commands: Commands,
-    q_listviews: Query<&TargetListView>,
+    q_listview: Single<Entity, With<TargetListView>>,
     q_listrows: Query<(), With<FeathersListRow>>,
     q_children: Query<&Children>,
     q_childof: Query<&ChildOf>,
@@ -251,11 +250,8 @@ fn on_add_drawing(
     mut q_drawing_colors: Query<(&Interpolation, &mut DrawingColor)>,
     mut q_drawing_scales: Query<(&Interpolation, &mut DrawingScale)>,
 ) {
-    let Ok(target_listview) = q_listviews.get(activate.entity) else {
-        return;
-    };
     if let Some((Ok(listrow_parent), row_index)) = q_children
-        .iter_descendants(target_listview.0)
+        .iter_descendants(*q_listview)
         .filter(|descendent| q_listrows.contains(*descendent))
         .enumerate()
         .map(|(index, listrow)| {

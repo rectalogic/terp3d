@@ -21,6 +21,7 @@ pub struct TerpProject {
     drawings: Vec<TerpDrawing>,
 }
 
+#[derive(Debug)]
 struct TerpDrawing {
     colors: (Oklaba, Oklaba),
     scales: (f32, f32),
