@@ -1,11 +1,11 @@
 use bevy::{
     camera::visibility::RenderLayers, material::OpaqueRendererMethod, pbr::ExtendedMaterial,
-    platform::collections::HashMap, prelude::*,
+    prelude::*,
 };
 
 use crate::{
-    app::Interpolation,
     editor::EditDrawing,
+    interpolation::Interpolation,
     rim_effect::{RimEffect, RimEffectPlugin},
 };
 
@@ -27,15 +27,10 @@ impl Plugin for DrawingsPlugin {
 #[derive(Resource, Default)]
 pub struct DrawingMesh(pub Handle<Mesh>);
 
-#[derive(Copy, Clone)]
-pub struct DrawingConfig {
-    pub color: Color,
-    pub scale: f32,
-}
-
 #[derive(Event)]
 pub struct AddDrawing {
-    pub drawing_configs: HashMap<Interpolation, DrawingConfig>,
+    pub colors: (Color, Color),
+    pub scales: (f32, f32),
 }
 
 #[derive(Event)]
@@ -81,10 +76,13 @@ fn on_add_drawing(
                 deselect_drawings(&mut commands, drawings);
             }
 
-            let drawing_config = add.drawing_configs[interpolation];
+            let (color, scale) = match interpolation {
+                Interpolation::Source => (add.colors.0, add.scales.0),
+                Interpolation::Target => (add.colors.1, add.scales.1),
+            };
             let material = materials.add(ExtendedMaterial {
                 base: StandardMaterial {
-                    base_color: drawing_config.color,
+                    base_color: color,
                     opaque_render_method: OpaqueRendererMethod::Forward,
                     ..Default::default()
                 },
@@ -92,7 +90,6 @@ fn on_add_drawing(
             });
             let render_layers = render_layers.clone();
             let interpolation = *interpolation;
-            let scale = drawing_config.scale;
             let drawing = commands
                 .spawn_scene(bsn! {
                     Drawing { material, scale }

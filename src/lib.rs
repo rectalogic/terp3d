@@ -3,6 +3,7 @@ mod camera_controller;
 mod drawing_selector;
 mod drawings;
 mod editor;
+mod interpolation;
 mod player;
 mod project;
 mod rim_effect;

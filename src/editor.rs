@@ -13,8 +13,9 @@ use bevy::{
 };
 
 use crate::{
-    app::{AppState, Interpolation},
+    app::AppState,
     camera_controller::{CameraController, CameraControllerPlugin},
+    interpolation::Interpolation,
 };
 
 const EDIT_DISTANCE: f32 = 8.0;

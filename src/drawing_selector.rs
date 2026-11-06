@@ -11,15 +11,14 @@ use bevy::{
         display::{caption, label},
         rounded_corners::RoundedCorners,
     },
-    platform::collections::HashMap,
     prelude::*,
     ui::Selected,
     ui_widgets::{Activate, RequestClose, ValueChange, listbox_update_selection},
 };
 
 use crate::{
-    app::Interpolation,
-    drawings::{AddDrawing, DrawingConfig, SelectDrawing},
+    drawings::{AddDrawing, SelectDrawing},
+    interpolation::Interpolation,
 };
 
 #[derive(SceneComponent, Clone, Default, Debug)]
@@ -28,10 +27,10 @@ pub struct DrawingSelector;
 #[derive(Component, Clone, Default)]
 struct TargetListView;
 
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Deref)]
 pub struct DrawingColor(pub Color);
 
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Deref)]
 pub struct DrawingScale(pub f32);
 
 impl DrawingSelector {
@@ -83,22 +82,12 @@ fn spawn_new_drawing_dialog(
     q_drawing_colors: Query<(&Interpolation, &DrawingColor)>,
     q_drawing_scales: Query<(&Interpolation, &DrawingScale)>,
 ) {
-    let drawing_configs: HashMap<Interpolation, DrawingConfig> = q_drawing_colors
-        .iter()
-        .map(|(interpolation, drawing_color)| {
-            let scale = q_drawing_scales
-                .iter()
-                .find_map(|(interp, scale)| (interp == interpolation).then_some(scale.0))
-                .unwrap();
-            (
-                *interpolation,
-                DrawingConfig {
-                    color: drawing_color.0,
-                    scale,
-                },
-            )
-        })
-        .collect();
+    let Some(colors) = Interpolation::partition(q_drawing_colors.iter()) else {
+        return;
+    };
+    let Some(scales) = Interpolation::partition(q_drawing_scales.iter()) else {
+        return;
+    };
 
     commands
         .entity(activate.event_target())
@@ -113,9 +102,9 @@ fn spawn_new_drawing_dialog(
                     ]
                     --
                     @FeathersDialogBody Children [
-                        @drawing_configurator(Interpolation::Source, &drawing_configs)
+                        @drawing_configurator(Interpolation::Source, **colors.0, **scales.0)
                         --
-                        @drawing_configurator(Interpolation::Target, &drawing_configs)
+                        @drawing_configurator(Interpolation::Target, **colors.1, **scales.1)
                     ]
                     --
                     @FeathersDialogFooter Children [
@@ -142,21 +131,10 @@ fn spawn_new_drawing_dialog(
         });
 }
 
-fn drawing_configurator(
-    interpolation: Interpolation,
-    drawing_configs: &HashMap<Interpolation, DrawingConfig>,
-) -> impl Scene {
-    let (title, color, scale) = match interpolation {
-        Interpolation::Source => (
-            "Source",
-            drawing_configs[&Interpolation::Source].color,
-            drawing_configs[&Interpolation::Source].scale,
-        ),
-        Interpolation::Target => (
-            "Target",
-            drawing_configs[&Interpolation::Target].color,
-            drawing_configs[&Interpolation::Target].scale,
-        ),
+fn drawing_configurator(interpolation: Interpolation, color: Color, scale: f32) -> impl Scene {
+    let title = match interpolation {
+        Interpolation::Source => "Source",
+        Interpolation::Target => "Target",
     };
     bsn! {
         @pane() Children [
@@ -212,9 +190,8 @@ fn listbox_select(
     }
 }
 
-fn new_row(index: usize, drawing_configs: &HashMap<Interpolation, DrawingConfig>) -> impl Scene {
-    let source_color = drawing_configs[&Interpolation::Source].color;
-    let target_color = drawing_configs[&Interpolation::Target].color;
+fn new_row(index: usize, colors: &(Color, Color)) -> impl Scene {
+    let &(source_color, target_color) = colors;
 
     bsn! {
         @FeathersListRow
@@ -260,48 +237,34 @@ fn on_add_drawing(
         })
         .last()
     {
-        let scales = q_number_inputs
-            .iter()
-            .map(|(interpolation, number_input)| {
-                let scale = match number_input {
-                    NumberInputValue::F32(scale) => *scale,
-                    _ => 1.0,
-                };
-                (*interpolation, scale)
-            })
-            .collect::<HashMap<_, _>>();
-        let drawing_configs = q_color_inputs
-            .iter()
-            .map(|(interpolation, color_input)| {
-                (
-                    *interpolation,
-                    DrawingConfig {
-                        color: color_input.0,
-                        scale: scales[interpolation],
-                    },
-                )
-            })
-            .collect::<HashMap<_, _>>();
+        let scales = match Interpolation::partition(q_number_inputs.iter()) {
+            Some((&NumberInputValue::F32(s), &NumberInputValue::F32(t))) => (s, t),
+            _ => return,
+        };
+        let colors = match Interpolation::partition(q_color_inputs.iter()) {
+            Some((&ColorInputValue(s), &ColorInputValue(t))) => (s, t),
+            _ => return,
+        };
 
-        let new_row = commands
-            .spawn_scene(new_row(row_index, &drawing_configs))
-            .id();
+        let new_row = commands.spawn_scene(new_row(row_index, &colors)).id();
         commands
             .entity(listrow_parent.0)
             .insert_child(row_index, new_row);
 
-        q_drawing_colors
-            .iter_mut()
-            .for_each(|(interpolation, mut drawing_color)| {
-                drawing_color.0 = drawing_configs[interpolation].color;
-            });
-        q_drawing_scales
-            .iter_mut()
-            .for_each(|(interpolation, mut drawing_scale)| {
-                drawing_scale.0 = drawing_configs[interpolation].scale;
-            });
+        match Interpolation::partition(q_drawing_scales.iter_mut()) {
+            Some((mut s, mut t)) => {
+                (s.0, t.0) = scales;
+            }
+            _ => return,
+        };
+        match Interpolation::partition(q_drawing_colors.iter_mut()) {
+            Some((mut s, mut t)) => {
+                (s.0, t.0) = colors;
+            }
+            _ => return,
+        };
 
-        commands.trigger(AddDrawing { drawing_configs });
+        commands.trigger(AddDrawing { colors, scales });
 
         commands.trigger(RequestClose {
             source: activate.event_target(),

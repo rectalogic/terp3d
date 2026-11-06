@@ -17,6 +17,7 @@ use crate::{
     drawing_selector::DrawingSelector,
     drawings::{DrawingContainer, DrawingsPlugin},
     editor::{DrawingEditor, EditorPlugin, EditorUI},
+    interpolation::Interpolation,
     player::PlayerPlugin,
 };
 
@@ -79,13 +80,6 @@ fn create_theme() -> ThemeProps {
 
 const SOURCE_LAYER: RenderLayers = RenderLayers::layer(1);
 const TARGET_LAYER: RenderLayers = RenderLayers::layer(2);
-
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Interpolation {
-    #[default]
-    Source,
-    Target,
-}
 
 fn show_editor(mut commands: Commands, q_editor: Single<Entity, With<EditorUI>>) {
     commands.entity(*q_editor).insert(Visibility::Inherited);
@@ -153,8 +147,8 @@ fn setup(mut commands: Commands) {
         --
         all_layers
         DirectionalLight {
-            illuminance: light_consts::lux::RAW_SUNLIGHT,
+            illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
         }
-        Transform::from_xyz(1.0, 1.0, -1.0).looking_at(Vec3::ZERO, Vec3::Y)
+        Transform::from_xyz(10.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y)
     });
 }

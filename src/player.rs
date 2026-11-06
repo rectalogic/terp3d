@@ -1,8 +1,9 @@
 use bevy::{pbr::ExtendedMaterial, prelude::*};
 
 use crate::{
-    app::{AppState, Interpolation},
+    app::AppState,
     drawings::{Drawing, DrawingMesh},
+    interpolation::Interpolation,
     project::TerpProject,
     rim_effect::RimEffect,
 };

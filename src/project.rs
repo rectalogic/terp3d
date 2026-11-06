@@ -9,9 +9,10 @@ use bevy::{
 };
 
 use crate::{
-    app::{AppState, Interpolation},
+    app::AppState,
     camera_controller::CameraController,
     drawings::Drawing,
+    interpolation::Interpolation,
     player::{Player, PlayerDrawing},
     rim_effect::RimEffect,
 };
