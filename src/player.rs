@@ -43,7 +43,7 @@ fn sync_material_color(
     }
 }
 
-#[expect(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, clippy::type_complexity)]
 fn setup_player(
     commands: Commands,
     animations: ResMut<Assets<AnimationClip>>,
@@ -52,11 +52,19 @@ fn setup_player(
     standard_materials: ResMut<Assets<StandardMaterial>>,
     q_drawings: Query<(&Drawing, &Interpolation, &Children)>,
     q_transforms: Query<&mut Transform>,
-    q_main_camera: Single<Entity, With<IsDefaultUiCamera>>,
+    q_editor_cameras: Query<(Entity, &Interpolation), (With<Camera>, Without<IsDefaultUiCamera>)>,
+    q_main_camera: Single<Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
     drawing_mesh: Res<DrawingMesh>,
 ) {
+    let source_camera_entity = q_editor_cameras
+        .iter()
+        .find_map(|(entity, &interpolation)| {
+            (interpolation == Interpolation::Source).then_some(entity)
+        })
+        .unwrap();
+
     TerpProject::build(
-        *q_main_camera,
+        source_camera_entity,
         q_drawings,
         q_transforms.as_readonly(),
         extended_materials,
