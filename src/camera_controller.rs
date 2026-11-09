@@ -13,7 +13,7 @@ pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((DefaultPanOrbitCameraPlugins, MeshPickingPlugin))
+        app.add_plugins(DefaultPanOrbitCameraPlugins)
             .add_systems(Startup, setup_axes)
             .add_systems(
                 PreUpdate,
