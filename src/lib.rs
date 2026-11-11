@@ -7,4 +7,5 @@ mod interpolation;
 mod player;
 mod project;
 mod rim_effect;
+mod skybox;
 pub use app::AppPlugin;

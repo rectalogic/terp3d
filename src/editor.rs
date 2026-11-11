@@ -16,6 +16,7 @@ use crate::{
     app::AppState,
     camera_controller::{CameraController, CameraControllerPlugin},
     interpolation::Interpolation,
+    skybox::SkyboxCamera,
 };
 
 const EDIT_DISTANCE: f32 = 8.0;
@@ -113,7 +114,7 @@ impl DrawingEditor {
                 on(on_editor_pointer_scroll)
                 LinkedCamera [
                     #Camera
-                    Camera3d
+                    @SkyboxCamera
                     Camera { order: -1 }
                     props.interpolation
                     Transform::from_xyz(0., 0., 10.0).looking_at(Vec3::ZERO, Vec3::Y)

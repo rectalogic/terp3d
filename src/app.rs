@@ -19,6 +19,7 @@ use crate::{
     editor::{DrawingEditor, EditorPlugin, EditorUI},
     interpolation::Interpolation,
     player::PlayerPlugin,
+    skybox::SkyboxCamera,
 };
 
 pub struct AppPlugin;
@@ -40,6 +41,7 @@ impl Plugin for AppPlugin {
             DrawingsPlugin,
         ))
         .init_state::<AppState>()
+        .insert_resource(GlobalAmbientLight::NONE)
         .insert_resource(UiTheme(create_theme()))
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::Edit), show_editor)
@@ -90,9 +92,8 @@ fn hide_editor(mut commands: Commands, q_editor: Single<Entity, With<EditorUI>>)
 }
 
 fn setup(mut commands: Commands) {
-    let all_layers = RenderLayers::default() | SOURCE_LAYER | TARGET_LAYER;
     commands.spawn_scene_list(bsn_list! {
-        Camera3d
+        @SkyboxCamera
         IsDefaultUiCamera
         --
         DrawingContainer
@@ -144,11 +145,5 @@ fn setup(mut commands: Commands) {
                 border: UiRect::all(px(2)),
             }
         ]
-        --
-        all_layers
-        DirectionalLight {
-            illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
-        }
-        Transform::from_xyz(10.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y)
     });
 }

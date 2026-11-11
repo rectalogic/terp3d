@@ -81,11 +81,7 @@ fn on_add_drawing(
                 Interpolation::Target => (add.colors.1, add.scales.1),
             };
             let material = materials.add(ExtendedMaterial {
-                base: StandardMaterial {
-                    base_color: color,
-                    opaque_render_method: OpaqueRendererMethod::Forward,
-                    ..Default::default()
-                },
+                base: base_material(color),
                 extension: RimEffect::default(),
             });
             let render_layers = render_layers.clone();
@@ -165,5 +161,15 @@ fn on_drawing_deselected(
         && let Some(mut material) = materials.get_mut(drawing.material.id())
     {
         material.extension.disable(true);
+    }
+}
+
+pub fn base_material(color: Color) -> StandardMaterial {
+    StandardMaterial {
+        base_color: color,
+        metallic: 0.9,
+        perceptual_roughness: 0.1,
+        opaque_render_method: OpaqueRendererMethod::Forward,
+        ..Default::default()
     }
 }

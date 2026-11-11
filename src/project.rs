@@ -11,7 +11,7 @@ use bevy::{
 use crate::{
     app::AppState,
     camera_controller::CameraController,
-    drawings::Drawing,
+    drawings::{Drawing, base_material},
     interpolation::Interpolation,
     player::{Player, PlayerDrawing},
     rim_effect::RimEffect,
@@ -137,10 +137,7 @@ impl TerpProject {
             .iter()
             .map(|drawing| {
                 let (source_color, target_color) = drawing.colors;
-                let material = materials.add(StandardMaterial {
-                    base_color: source_color.into(),
-                    ..default()
-                });
+                let material = materials.add(base_material(source_color.into()));
 
                 let color_animation_target_id = AnimationTargetId(Uuid::new_v4());
                 let color_curve = curve
