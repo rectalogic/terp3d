@@ -43,4 +43,14 @@ RUN curl -o ktx.deb -L https://github.com/KhronosGroup/KTX-Software/releases/dow
 ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
 RUN mkdir build && cd build && cmake ../glTF-IBL-Sampler && make
 
-ENTRYPOINT ["/usr/bin/xvfb-run", "/ibl/build/cli"]
+COPY --chmod=755 <<'EOF' /ibl/entrypoint.sh
+#!/bin/sh
+HDR=${1?Specify input HDR filename}
+HDRBASE=$(basename "$HDR" .hdr)
+/ibl/build/cli -inputPath "/terp3d/assets/ibl/$HDR" -outCubeMap /ibl/diffuse.ktx2 -distribution Lambertian -cubeMapResolution 32
+ktx transcode --target rgb9e5 --zstd 9 /ibl/diffuse.ktx2 "/terp3d/assets/ibl/$HDRBASE-diffuse.ktx2"
+/ibl/build/cli -inputPath "/terp3d/assets/ibl/$HDR" -outCubeMap /ibl/specular.ktx2 -distribution GGX -cubeMapResolution 512
+ktx transcode --target rgb9e5 --zstd 9 /ibl/specular.ktx2 "/terp3d/assets/ibl/$HDRBASE-specular.ktx2"
+EOF
+
+ENTRYPOINT ["/usr/bin/xvfb-run", "/ibl/entrypoint.sh"]
