@@ -1,7 +1,9 @@
 use bevy::{
     animation::{AnimatedBy, AnimationTargetId, animated_field},
     asset::uuid::Uuid,
+    feathers::{controls::FeathersButton, display::caption},
     prelude::*,
+    ui_widgets::Activate,
 };
 
 use crate::{
@@ -75,6 +77,12 @@ fn on_play_project(
         }
         @CameraController { @camera: camera_entity }
         DespawnOnExit::<AppState>(AppState::Play)
+        Children [
+            @FeathersButton { @caption: bsn! { @caption("Edit") } }
+            on(|_activate: On<Activate>, mut next_state: ResMut<NextState<AppState>>| {
+                next_state.set(AppState::Edit);
+            })
+        ]
     });
     scene_commands.queue_spawn_related_scenes::<Children>(player_drawings(
         &play.project,
