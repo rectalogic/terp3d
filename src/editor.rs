@@ -107,7 +107,7 @@ impl DrawingEditor {
                 Hovered
                 props.interpolation
                 ViewportNode { camera: OptionTemplate::Some(#Camera) }
-                CameraController { camera: OptionTemplate::Some(#Camera) }
+                @CameraController { @camera: #Camera }
                 LinkedEditGrid(#EditGrid)
                 on(on_editor_pointer_drag)
                 on(on_editor_pointer_drag_end)

@@ -3,6 +3,7 @@ use bevy::{
     camera_controller::pan_orbit_camera::{
         DefaultPanOrbitCameraPlugins, controller::component::PanOrbitCamera,
     },
+    ecs::template::{EntityTemplate, OptionTemplate},
     input::mouse::MouseScrollPixelsPerLine,
     math::DVec3,
     picking::PickingSystems,
@@ -25,10 +26,29 @@ impl Plugin for CameraControllerPlugin {
     }
 }
 
-#[derive(Component, Clone, Default, Debug, FromTemplate)]
+#[derive(SceneComponent, Clone, Default, Debug, FromTemplate)]
+#[scene(CameraControllerProps)]
 pub struct CameraController {
     #[template(built_in)]
     pub camera: Option<Entity>,
+}
+
+#[derive(Default)]
+pub struct CameraControllerProps {
+    pub camera: EntityTemplate,
+}
+
+impl CameraController {
+    fn scene(props: CameraControllerProps) -> impl Scene {
+        let camera = props.camera;
+        bsn! {
+            CameraController { camera: OptionTemplate::Some(camera) }
+            on(on_viewport_pointer_drag_start)
+            on(on_viewport_pointer_drag)
+            on(on_viewport_pointer_drag_end)
+            on(on_viewport_pointer_scroll)
+        }
+    }
 }
 
 fn on_add_camera_controller(
@@ -36,12 +56,6 @@ fn on_add_camera_controller(
     mut commands: Commands,
     camera_controllers: Query<&CameraController>,
 ) {
-    commands
-        .entity(add.entity)
-        .observe(on_viewport_pointer_drag_start)
-        .observe(on_viewport_pointer_drag)
-        .observe(on_viewport_pointer_drag_end)
-        .observe(on_viewport_pointer_scroll);
     if let Ok(camera_controller) = camera_controllers.get(add.entity)
         && let Some(camera_entity) = camera_controller.camera
     {
@@ -126,7 +140,10 @@ fn on_viewport_pointer_scroll(
     {
         if let Ok(layer) = layers.get(camera) {
             commands.entity(*gizmo_axes).insert(layer.clone());
+        } else {
+            commands.entity(*gizmo_axes).remove::<RenderLayers>();
         }
+
         let scroll = scroll.to_pixels(&pixels_per_line);
         pan_orbit_camera.start_zoom(Some(DVec3::new(
             0.0,

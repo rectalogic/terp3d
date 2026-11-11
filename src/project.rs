@@ -3,7 +3,6 @@ use std::iter;
 use bevy::{
     animation::{AnimatedBy, AnimationTargetId, animated_field},
     asset::uuid::Uuid,
-    ecs::template::OptionTemplate,
     pbr::ExtendedMaterial,
     prelude::*,
 };
@@ -101,7 +100,7 @@ impl TerpProject {
                 width: percent(100),
                 height: percent(100),
             }
-            CameraController { camera: OptionTemplate::Some(camera_entity) }
+            @CameraController { @camera: camera_entity }
             DespawnOnExit::<AppState>(AppState::Play)
         });
         scene_commands.queue_spawn_related_scenes::<Children>(self.player_drawings(
