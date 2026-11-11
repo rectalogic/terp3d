@@ -9,16 +9,19 @@ use bevy::{
         theme::{SemanticToken, SurfaceLevel, ThemeBackgroundColor, ThemeProps, UiTheme},
         tokens,
     },
+    pbr::ExtendedMaterial,
     prelude::*,
     ui_widgets::Activate,
 };
 
 use crate::{
     drawing_selector::DrawingSelector,
-    drawings::{DrawingContainer, DrawingsPlugin},
+    drawings::{Drawing, DrawingContainer, DrawingsPlugin},
     editor::{DrawingEditor, EditorPlugin, EditorUI},
     interpolation::Interpolation,
-    player::PlayerPlugin,
+    player::{PlayProject, PlayerPlugin},
+    project::TerpProject,
+    rim_effect::RimEffect,
     skybox::SkyboxCamera,
 };
 
@@ -133,9 +136,7 @@ fn setup(mut commands: Commands) {
                 @FeathersButton {
                     @caption: bsn! { @caption("Play") },
                 }
-                on(|_activate: On<Activate>, mut next_state: ResMut<NextState<AppState>>| {
-                    next_state.set(AppState::Play);
-                })
+                on(on_play)
             ]
             --
             @DrawingEditor { @interpolation: Interpolation::Target, @render_layers: TARGET_LAYER }
@@ -146,4 +147,29 @@ fn setup(mut commands: Commands) {
             }
         ]
     });
+}
+
+#[expect(clippy::type_complexity)]
+fn on_play(
+    _activate: On<Activate>,
+    mut commands: Commands,
+    extended_materials: Res<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
+    q_drawings: Query<(&Drawing, &Interpolation, &Children)>,
+    q_transforms: Query<&mut Transform>,
+    q_editor_cameras: Query<(Entity, &Interpolation), (With<Camera>, Without<IsDefaultUiCamera>)>,
+) {
+    let source_camera_entity = q_editor_cameras
+        .iter()
+        .find_map(|(entity, &interpolation)| {
+            (interpolation == Interpolation::Source).then_some(entity)
+        })
+        .unwrap();
+
+    let project = TerpProject::build(
+        source_camera_entity,
+        q_drawings,
+        q_transforms.as_readonly(),
+        extended_materials,
+    );
+    commands.trigger(PlayProject { project });
 }
