@@ -1,15 +1,18 @@
 use std::iter;
 
+use base64::{Engine as _, engine::general_purpose::URL_SAFE};
 use bevy::{pbr::ExtendedMaterial, prelude::*};
+use serde::{Deserialize, Serialize};
 
 use crate::{drawings::Drawing, interpolation::Interpolation, rim_effect::RimEffect};
 
+#[derive(Serialize, Deserialize)]
 pub struct TerpProject {
     pub camera: Transform,
     pub drawings: Vec<TerpDrawing>,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TerpDrawing {
     pub colors: (Oklaba, Oklaba),
     pub scales: (f32, f32),
@@ -63,6 +66,27 @@ impl TerpProject {
             camera: *transform,
             drawings,
         }
+    }
+
+    pub fn save(&self) -> Result<String> {
+        let output: Vec<u8> = postcard::to_allocvec(self)?;
+        let compressed =
+            yazi::compress(&output, yazi::Format::Zlib, yazi::CompressionLevel::Default)
+                .map_err(|e| format!("{e:?}"))?;
+        Ok(URL_SAFE.encode(&compressed))
+    }
+
+    pub fn load(data: &str) -> Result<TerpProject> {
+        let compressed = URL_SAFE.decode(data)?;
+        let (decompressed, checksum) =
+            yazi::decompress(&compressed, yazi::Format::Zlib).map_err(|e| format!("{e:?}"))?;
+        if let Some(checksum) = checksum
+            && yazi::Adler32::from_buf(&decompressed).finish() != checksum
+        {
+            return Err("invalid checksum".into());
+        }
+        let project: TerpProject = postcard::from_bytes(&decompressed)?;
+        Ok(project)
     }
 }
 
