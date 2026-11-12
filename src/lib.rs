@@ -9,3 +9,5 @@ mod project;
 mod rim_effect;
 mod skybox;
 pub use app::AppPlugin;
+#[cfg(target_arch = "wasm32")]
+mod web;
