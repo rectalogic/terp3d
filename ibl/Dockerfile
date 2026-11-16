@@ -44,14 +44,16 @@ ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
 RUN mkdir build && cd build && cmake ../glTF-IBL-Sampler && make
 
 COPY --chmod=755 <<'EOF' /ibl/entrypoint.sh
-#!/bin/sh
+#!/bin/sh -x
 HDR=${1?Specify input HDR filename}
 HDRBASE=$(basename "$HDR" .hdr)
 /ibl/build/cli -targetFormat R16G16B16A16_SFLOAT -inputPath "/terp3d/assets/ibl/$HDR" -outCubeMap /ibl/diffuse.ktx2 -distribution Lambertian -cubeMapResolution 32
-ktx encode --codec uastc-hdr-4x4 /ibl/diffuse.ktx2 - | ktx transcode --target rgb9e5 --zstd 9 - "/terp3d/assets/ibl/$HDRBASE-diffuse.ktx2"
+ktx encode --codec uastc-hdr-4x4 /ibl/diffuse.ktx2 /ibl/diffuse-encode.ktx2
+ktx transcode --target rgb9e5 --zstd 9 /ibl/diffuse-encode.ktx2 "/terp3d/assets/ibl/$HDRBASE-diffuse.ktx2"
 
 /ibl/build/cli -targetFormat R16G16B16A16_SFLOAT -inputPath "/terp3d/assets/ibl/$HDR" -outCubeMap /ibl/specular.ktx2 -distribution GGX -cubeMapResolution 512
-ktx encode --codec uastc-hdr-4x4 /ibl/specular.ktx2 - | ktx transcode --target rgb9e5 --zstd 9 - "/terp3d/assets/ibl/$HDRBASE-specular.ktx2"
+ktx encode --codec uastc-hdr-4x4 /ibl/specular.ktx2 /ibl/specular-encode.ktx2
+ktx transcode --target rgb9e5 --zstd 9 /ibl/specular-encode.ktx2 "/terp3d/assets/ibl/$HDRBASE-specular.ktx2"
 EOF
 
 ENTRYPOINT ["/usr/bin/xvfb-run", "/ibl/entrypoint.sh"]

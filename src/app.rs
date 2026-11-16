@@ -34,6 +34,8 @@ impl Plugin for AppPlugin {
                 primary_window: Some(Window {
                     title: "Terp3D".into(),
                     resolution: (1200, 600).into(),
+                    canvas: Some("#canvas".into()),
+                    fit_canvas_to_parent: true,
                     ..default()
                 }),
                 ..default()
