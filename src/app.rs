@@ -139,6 +139,11 @@ fn setup(mut commands: Commands) {
                     @caption: bsn! { @caption("Play") },
                 }
                 on(on_play)
+                --
+                @FeathersButton {
+                    @caption: bsn! { @caption("Copy URL") },
+                }
+                on(on_copy_url)
             ]
             --
             @DrawingEditor { @interpolation: Interpolation::Target, @render_layers: TARGET_LAYER }
@@ -174,4 +179,33 @@ fn on_play(
         extended_materials,
     );
     commands.trigger(PlayProject { project });
+}
+
+#[expect(clippy::type_complexity)]
+fn on_copy_url(
+    _activate: On<Activate>,
+    mut clipboard: ResMut<Clipboard>,
+    extended_materials: Res<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
+    q_drawings: Query<(&Drawing, &Interpolation, &Children)>,
+    q_transforms: Query<&mut Transform>,
+    q_editor_cameras: Query<(Entity, &Interpolation), (With<Camera>, Without<IsDefaultUiCamera>)>,
+) {
+    let source_camera_entity = q_editor_cameras
+        .iter()
+        .find_map(|(entity, &interpolation)| {
+            (interpolation == Interpolation::Source).then_some(entity)
+        })
+        .unwrap();
+
+    let project = TerpProject::build(
+        source_camera_entity,
+        q_drawings,
+        q_transforms.as_readonly(),
+        extended_materials,
+    );
+
+    if let Ok(project_data) = project.save() {
+        let url = format!("https://www.rectalogic.com/terp3d?project={project_data}");
+        let _ = clipboard.set_text(&url);
+    }
 }

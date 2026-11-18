@@ -37,7 +37,8 @@
             import init, { start } from "./pkg/terp3d.js";
             import("./restart-audio-context.js");
             await init();
-            start();
+            const params = new URLSearchParams(window.location.search);
+            start(params.get("project"));
         </script>
     </head>
     <body>

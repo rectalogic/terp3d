@@ -5,3 +5,5 @@ use terp3d::AppPlugin;
 fn main() {
     App::new().add_plugins(AppPlugin).run();
 }
+#[cfg(target_arch = "wasm32")]
+fn main() {}
