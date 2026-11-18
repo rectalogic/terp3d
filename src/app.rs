@@ -205,7 +205,7 @@ fn on_copy_url(
     );
 
     if let Ok(project_data) = project.save() {
-        let url = format!("https://www.rectalogic.com/terp3d?project={project_data}");
+        let url = format!("https://rectalogic.com/terp3d?project={project_data}");
         let _ = clipboard.set_text(&url);
     }
 }
