@@ -27,7 +27,8 @@ impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(CameraControllerPlugin).add_systems(
             Update,
-            handle_edit_grid_visibility.run_if(in_state(AppState::Edit)),
+            (handle_edit_grid_visibility, handle_interpolation_preview)
+                .run_if(in_state(AppState::Edit)),
         );
     }
 
@@ -66,7 +67,6 @@ pub struct DrawingEditor;
 #[derive(Default)]
 pub struct DrawingEditorProps {
     pub interpolation: Interpolation,
-    pub render_layers: RenderLayers,
 }
 
 #[derive(Component)]
@@ -89,7 +89,7 @@ struct LinkedEditGrid(Entity);
 impl DrawingEditor {
     fn scene(props: DrawingEditorProps) -> impl Scene {
         let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
-        let render_layers = props.render_layers.clone();
+        let render_layers = props.interpolation.render_layers();
         let title = match props.interpolation {
             Interpolation::Source => "Source",
             Interpolation::Target => "Target",
@@ -118,7 +118,7 @@ impl DrawingEditor {
                     Camera { order: -1 }
                     props.interpolation
                     Transform::from_xyz(0., 0., 10.0).looking_at(Vec3::ZERO, Vec3::Y)
-                    props.render_layers
+                    render_layers.clone()
                     RenderTarget::Image(ImageRenderTargetTemplate {
                         handle: asset_value(image),
                         scale_factor: 1.0, //XXX default is 0, panics
@@ -136,7 +136,7 @@ impl DrawingEditor {
                                 ..default()
                             })
                         })
-                        render_layers
+                        render_layers.clone()
                         Visibility::Hidden
                         Transform::from_xyz(0., 0., -EDIT_DISTANCE)
                     ]
@@ -227,6 +227,29 @@ fn handle_edit_grid_visibility(
             && let Ok(linked_edit_grid) = q_linked_edit_grids.get(entity)
         {
             commands.entity(linked_edit_grid.0).insert(visibility);
+        }
+    }
+}
+
+fn handle_interpolation_preview(
+    input: Res<ButtonInput<KeyCode>>,
+    q_viewport_node_hover: Query<(&LinkedCamera, &Interpolation, &Hovered), With<ViewportNode>>,
+    mut q_cameras: Query<&mut RenderLayers>,
+) {
+    let pressed = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    for (linked_camera, interpolation, hovered) in q_viewport_node_hover {
+        let Ok(mut camera_render_layers) = q_cameras.get_mut(linked_camera.0) else {
+            continue;
+        };
+        let other_render_layers = match interpolation {
+            Interpolation::Source => Interpolation::Target.render_layers(),
+            Interpolation::Target => Interpolation::Source.render_layers(),
+        };
+        let preview = pressed && hovered.get();
+        if preview && !camera_render_layers.intersects(other_render_layers) {
+            *camera_render_layers = interpolation.render_layers().union(other_render_layers);
+        } else if !preview && camera_render_layers.as_ref() != interpolation.render_layers() {
+            *camera_render_layers = interpolation.render_layers().clone();
         }
     }
 }

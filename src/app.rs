@@ -1,5 +1,4 @@
 use bevy::{
-    camera::visibility::RenderLayers,
     color::palettes,
     feathers::{
         FeathersPlugins,
@@ -85,9 +84,6 @@ fn create_theme() -> ThemeProps {
     props
 }
 
-const SOURCE_LAYER: RenderLayers = RenderLayers::layer(1);
-const TARGET_LAYER: RenderLayers = RenderLayers::layer(2);
-
 fn show_editor(mut commands: Commands, q_editor: Single<Entity, With<EditorUI>>) {
     commands.entity(*q_editor).insert(Visibility::Inherited);
 }
@@ -103,12 +99,12 @@ fn setup(mut commands: Commands) {
         --
         DrawingContainer
         Interpolation::Source
-        SOURCE_LAYER
+        Interpolation::Source.render_layers().clone()
         Children []
         --
         DrawingContainer
         Interpolation::Target
-        TARGET_LAYER
+        Interpolation::Target.render_layers().clone()
         Children []
         --
         EditorUI
@@ -120,7 +116,7 @@ fn setup(mut commands: Commands) {
         }
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children [
-            @DrawingEditor { @interpolation: Interpolation::Source, @render_layers: SOURCE_LAYER }
+            @DrawingEditor { @interpolation: Interpolation::Source }
             Node {
                 flex_grow: 1.0,
                 height: percent(100),
@@ -146,7 +142,7 @@ fn setup(mut commands: Commands) {
                 on(on_copy_url)
             ]
             --
-            @DrawingEditor { @interpolation: Interpolation::Target, @render_layers: TARGET_LAYER }
+            @DrawingEditor { @interpolation: Interpolation::Target }
             Node {
                 flex_grow: 1.0,
                 height: percent(100),
