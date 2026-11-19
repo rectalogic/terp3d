@@ -174,7 +174,10 @@ fn on_play(
         q_transforms.as_readonly(),
         extended_materials,
     );
-    commands.trigger(PlayProject { project });
+    commands.trigger(PlayProject {
+        project,
+        allow_edit: true,
+    });
 }
 
 #[expect(clippy::type_complexity)]

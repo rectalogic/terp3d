@@ -27,6 +27,7 @@ fn setup(world: &mut World) {
     if let Some(initial_project) = world.remove_resource::<InitialProject>() {
         world.commands().trigger(PlayProject {
             project: initial_project.0,
+            allow_edit: false,
         });
     }
 }

@@ -29,6 +29,7 @@ impl Plugin for PlayerPlugin {
 #[derive(Event)]
 pub struct PlayProject {
     pub project: TerpProject,
+    pub allow_edit: bool,
 }
 
 #[derive(Component, Clone, Default)]
@@ -77,13 +78,15 @@ fn on_play_project(
         }
         @CameraController { @camera: camera_entity }
         DespawnOnExit::<AppState>(AppState::Play)
-        Children [
+    });
+    if play.allow_edit {
+        scene_commands.queue_spawn_related_scenes::<Children>(bsn_list! {
             @FeathersButton { @caption: bsn! { @caption("Edit") } }
             on(|_activate: On<Activate>, mut next_state: ResMut<NextState<AppState>>| {
                 next_state.set(AppState::Edit);
             })
-        ]
-    });
+        });
+    }
     scene_commands.queue_spawn_related_scenes::<Children>(player_drawings(
         &play.project,
         scene_commands.id(),
