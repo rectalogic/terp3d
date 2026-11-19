@@ -76,6 +76,7 @@ impl TerpProject {
         Ok(URL_SAFE.encode(&compressed))
     }
 
+    #[cfg(target_arch = "wasm32")]
     pub fn load(data: &str) -> Result<TerpProject> {
         let compressed = URL_SAFE.decode(data)?;
         let (decompressed, checksum) =

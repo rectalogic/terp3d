@@ -1,3 +1,5 @@
+# check=skip=FromPlatformFlagConstDisallowed
+
 FROM --platform=linux/amd64 ubuntu:resolute
 
 RUN apt update && apt install -y \
