@@ -16,6 +16,7 @@ impl Plugin for DrawingsPlugin {
         app.add_plugins(RimEffectPlugin)
             .init_resource::<DrawingMesh>()
             .add_systems(Startup, setup)
+            .add_systems(Last, despawn_warmup.run_if(run_once))
             .add_observer(on_add_drawing)
             .add_observer(on_select_drawing)
             .add_observer(on_drawing_selected)
@@ -23,6 +24,9 @@ impl Plugin for DrawingsPlugin {
             .add_observer(on_edit_drawing);
     }
 }
+
+#[derive(Component, Clone, Default)]
+struct ShaderWarmup(u8);
 
 #[derive(Resource, Default)]
 pub struct DrawingMesh(pub Handle<Mesh>);
@@ -52,8 +56,34 @@ pub struct Drawing {
     pub scale: f32,
 }
 
-fn setup(mut meshes: ResMut<Assets<Mesh>>, mut drawing_mesh: ResMut<DrawingMesh>) {
-    drawing_mesh.0 = meshes.add(Sphere::new(0.1).mesh());
+fn setup(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, RimEffect>>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut drawing_mesh: ResMut<DrawingMesh>,
+) {
+    let mesh = meshes.add(Sphere::new(0.1).mesh());
+    drawing_mesh.0 = mesh.clone();
+
+    // Prime shader
+    let material = materials.add(ExtendedMaterial {
+        base: base_material(Color::WHITE),
+        extension: RimEffect::default(),
+    });
+    commands.spawn_scene(bsn! {
+        ShaderWarmup(2)
+        Mesh3d(mesh)
+        MeshMaterial3d::<ExtendedMaterial<StandardMaterial, RimEffect>>(material)
+    });
+}
+
+fn despawn_warmup(mut commands: Commands, warmup: Single<(Entity, &mut ShaderWarmup)>) {
+    let (entity, mut frames) = warmup.into_inner();
+    if frames.0 == 0 {
+        commands.entity(entity).despawn();
+    } else {
+        frames.0 -= 1;
+    }
 }
 
 fn deselect_drawings(commands: &mut Commands, drawings: &Children) {
